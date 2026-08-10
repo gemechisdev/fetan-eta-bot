@@ -130,10 +130,22 @@ async def on_number_tap(callback: CallbackQuery, bot: Bot):
     fresh2 = await repo.get_active_round(chat_id)
     if fresh2:
         try:
+            # Prefer editing the stored board message if available so all users
+            # see the same updated board. Fall back to the message where the
+            # callback originated.
+            board_id = fresh2.get("message_refs", {}).get("board_message_id")
+            target_message_id = board_id if board_id else callback.message.message_id
             await bot.edit_message_reply_markup(
                 chat_id=chat_id,
-                message_id=callback.message.message_id,
+                message_id=target_message_id,
                 reply_markup=build_number_grid(fresh2),
             )
+        except Exception:
+            pass
+
+        # Debug: log current numbers and statuses to assist troubleshooting
+        try:
+            nums = [(n.get("number"), n.get("status"), n.get("telegram_id")) for n in fresh2["numbers"]]
+            print(f"[DEBUG] callback.data={callback.data} parsed_number={number} refreshed_numbers_sample={nums[:10]}")
         except Exception:
             pass

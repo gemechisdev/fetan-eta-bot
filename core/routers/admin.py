@@ -358,50 +358,106 @@ async def cmd_listadmins(message: Message):
     await message.answer("Admins:\n" + "\n".join(lines))
 
 
+@router.message(Command("chat"))
+async def cmd_chat(message: Message, bot: Bot):
+    if not await is_admin(message.from_user.id):
+        return
+
+    parts = message.text.split(maxsplit=2)
+    try:
+        target = int(parts[1])
+    except (IndexError, ValueError):
+        await message.answer("Usage: /chat telegram_id <message> (or reply to a message with /chat telegram_id)")
+        return
+
+    # If text provided inline, send it; otherwise forward/copy the replied-to message
+    if len(parts) > 2 and parts[2].strip():
+        txt = parts[2].strip()
+        try:
+            await bot.send_message(target, txt)
+            await message.answer("Sent message to user.")
+        except Exception:
+            await message.answer("Failed to send message to user.")
+        return
+
+    # No inline text: expect this message is a reply to something to forward/copy
+    if not message.reply_to_message:
+        await message.answer("Reply to a message or provide a text to send.")
+        return
+
+    rm = message.reply_to_message
+    try:
+        # Use copy_message to preserve media and caption but attribute to bot
+        await bot.copy_message(chat_id=target, from_chat_id=rm.chat.id, message_id=rm.message_id)
+        await message.answer("Forwarded replied message to user.")
+    except Exception:
+        try:
+            await bot.forward_message(chat_id=target, from_chat_id=rm.chat.id, message_id=rm.message_id)
+            await message.answer("Forwarded replied message to user.")
+        except Exception:
+            await message.answer("Failed to forward the replied message to user.")
+
+
 @router.callback_query(F.data.startswith("rev:"))
 async def on_review(callback: CallbackQuery, bot: Bot):
     if not await is_admin(callback.from_user.id):
         await callback.answer("Admins only.", show_alert=True)
         return
 
-    _, action, payment_id = callback.data.split(":")
-    payment = await repo.get_payment(payment_id)
-    if not payment or payment["status"] != "awaiting_review":
-        await callback.answer("Already handled.", show_alert=True)
+    # support multiple payment ids joined by commas in the third segment
+    parts = callback.data.split(":", 2)
+    if len(parts) < 3:
+        await callback.answer("Invalid action.", show_alert=True)
         return
+    _, action, ids_raw = parts
+    ids = [pid for pid in ids_raw.split(",") if pid]
 
-    if action == "approve":
-        await round_service.approve_payment(payment, callback.from_user.id)
-        await callback.answer("Approved ✅")
-        try:
-            await bot.send_message(
-                payment["telegram_id"],
-                f"✅ Your payment for number {payment['number']:02d} was approved. You're in!",
-            )
-        except Exception:
-            pass
+    handled = 0
+    affected_rounds = set()
+    for pid in ids:
+        payment = await repo.get_payment(pid)
+        if not payment or payment.get("status") != "awaiting_review":
+            continue
+
+        if action == "approve":
+            await round_service.approve_payment(payment, callback.from_user.id)
+            try:
+                await bot.send_message(
+                    payment["telegram_id"],
+                    f"✅ Your payment for number {payment['number']:02d} was approved. You're in!",
+                )
+            except Exception:
+                pass
+        else:
+            await round_service.reject_payment(payment, callback.from_user.id)
+            try:
+                await bot.send_message(
+                    payment["telegram_id"],
+                    f"❌ Your payment for number {payment['number']:02d} was rejected. The number is available again.",
+                )
+            except Exception:
+                pass
+
+        handled += 1
+        # track rounds that need their board refreshed
+        if payment.get("round_id"):
+            affected_rounds.add(str(payment.get("round_id")))
+
+    if handled:
+        await callback.answer("Handled ✅")
     else:
-        await round_service.reject_payment(payment, callback.from_user.id)
-        await callback.answer("Rejected ❌")
-        try:
-            await bot.send_message(
-                payment["telegram_id"],
-                f"❌ Your payment for number {payment['number']:02d} was rejected. "
-                f"The number is available again.",
-            )
-        except Exception:
-            pass
+        await callback.answer("Nothing to do or already handled.", show_alert=True)
 
-    fresh = await repo.get_round(payment["round_id"])
-    board_id = fresh["message_refs"].get("board_message_id") if fresh else None
-    if fresh and board_id:
+    # Refresh boards for any affected rounds
+    for rid in affected_rounds:
         try:
-            await bot.edit_message_text(
-                build_board_text(fresh), chat_id=fresh["chat_id"], message_id=board_id
-            )
-            await bot.edit_message_reply_markup(
-                chat_id=fresh["chat_id"], message_id=board_id, reply_markup=build_number_grid(fresh)
-            )
+            fresh = await repo.get_round(rid)
+            board_id = fresh["message_refs"].get("board_message_id") if fresh else None
+            if fresh and board_id:
+                await bot.edit_message_text(build_board_text(fresh), chat_id=fresh["chat_id"], message_id=board_id)
+                await bot.edit_message_reply_markup(
+                    chat_id=fresh["chat_id"], message_id=board_id, reply_markup=build_number_grid(fresh)
+                )
         except Exception:
             pass
 

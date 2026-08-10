@@ -13,11 +13,12 @@ def build_number_grid(round_doc) -> InlineKeyboardMarkup:
     round_number = round_doc["round_number"]
     winner_numbers = {r["number"] for r in round_doc.get("draw", {}).get("results", [])}
 
-    for n in round_doc["numbers"]:
+    # Ensure stable numeric ordering for the grid (protect against DB array reorders)
+    for n in sorted(round_doc["numbers"], key=lambda x: x["number"]):
         if n["number"] in winner_numbers:
             emoji = "🏆"
         else:
-            emoji = STATUS_EMOJI.get(n["status"], "⚪")
+            emoji = STATUS_EMOJI.get(n.get("status"), "⚪")
         label = f"{n['number']:02d}{emoji}"
         builder.button(text=label, callback_data=f"num:{round_number}:{n['number']}")
 
@@ -29,5 +30,18 @@ def build_review_kb(payment_id: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Approve", callback_data=f"rev:approve:{payment_id}")
     builder.button(text="❌ Reject", callback_data=f"rev:reject:{payment_id}")
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def build_review_kb_multi(payment_ids: list[str]) -> InlineKeyboardMarkup:
+    """Build a review keyboard for multiple payments at once.
+
+    Provides Approve All / Reject All actions where the payment ids are joined by commas.
+    """
+    joined = ",".join(payment_ids)
+    builder = InlineKeyboardBuilder()
+    builder.button(text="✅ Approve All", callback_data=f"rev:approve:{joined}")
+    builder.button(text="❌ Reject All", callback_data=f"rev:reject:{joined}")
     builder.adjust(2)
     return builder.as_markup()

@@ -113,7 +113,13 @@ async def assign_number(round_id, number, telegram_id=None, username=None, displ
     if display_name is not None:
         update["$set"]["numbers.$.display_name"] = display_name
 
-    await db.rounds.update_one({"_id": _oid(round_id), "numbers.number": number}, update)
+    # Use arrayFilters to ensure correct element is updated
+    # rewrite update to use numbers.$[elem]
+    set_fields = {}
+    for k, v in update.get("$set", {}).items():
+        # replace prefix 'numbers.$.' with 'numbers.$[elem].'
+        set_fields[k.replace('numbers.$.', 'numbers.$[elem].')] = v
+    await db.rounds.update_one({"_id": _oid(round_id)}, {"$set": set_fields}, array_filters=[{"elem.number": number}])
 
 
 async def get_next_round_number(chat_id):
@@ -148,52 +154,80 @@ async def reserve_number_pending(round_id, number, telegram_id, username, displa
     """Atomically flips an available number to pending.
     Returns True only if this call is the one that won the race."""
     db = get_db()
+    # Use arrayFilters to ensure we update the array element with the matching number
     result = await db.rounds.update_one(
-        {"_id": _oid(round_id), "numbers.number": number, "numbers.status": "available"},
+        {"_id": _oid(round_id)},
         {
             "$set": {
-                "numbers.$.status": "pending",
-                "numbers.$.telegram_id": telegram_id,
-                "numbers.$.username": username,
-                "numbers.$.display_name": display_name,
-                "numbers.$.reserved_at": utcnow(),
+                "numbers.$[elem].status": "pending",
+                "numbers.$[elem].telegram_id": telegram_id,
+                "numbers.$[elem].username": username,
+                "numbers.$[elem].display_name": display_name,
+                "numbers.$[elem].reserved_at": utcnow(),
             }
         },
+        array_filters=[{"elem.number": number, "elem.status": "available"}],
     )
+    try:
+        print(f"[DB DEBUG] reserve_number_pending round_id={round_id} number={number} telegram_id={telegram_id} modified={result.modified_count}")
+        # Fetch the affected round's first 12 numbers for quick inspection
+        doc = await db.rounds.find_one({"_id": _oid(round_id)}, {"numbers": {"$slice": 12}})
+        nums = [(n.get("number"), n.get("status"), n.get("telegram_id")) for n in doc["numbers"]]
+        print(f"[DB DEBUG] post-reserve numbers_sample={nums}")
+    except Exception:
+        pass
     return result.modified_count == 1
 
 
 async def release_number(round_id, number):
     db = get_db()
     await db.rounds.update_one(
-        {"_id": _oid(round_id), "numbers.number": number},
+        {"_id": _oid(round_id)},
         {
             "$set": {
-                "numbers.$.status": "available",
-                "numbers.$.telegram_id": None,
-                "numbers.$.username": None,
-                "numbers.$.display_name": None,
-                "numbers.$.payment_id": None,
-                "numbers.$.reserved_at": None,
+                "numbers.$[elem].status": "available",
+                "numbers.$[elem].telegram_id": None,
+                "numbers.$[elem].username": None,
+                "numbers.$[elem].display_name": None,
+                "numbers.$[elem].payment_id": None,
+                "numbers.$[elem].reserved_at": None,
             }
         },
+        array_filters=[{"elem.number": number}],
     )
+    try:
+        print(f"[DB DEBUG] release_number round_id={round_id} number={number}")
+        doc = await db.rounds.find_one({"_id": _oid(round_id)}, {"numbers": {"$slice": 12}})
+        nums = [(n.get("number"), n.get("status"), n.get("telegram_id")) for n in doc["numbers"]]
+        print(f"[DB DEBUG] post-release numbers_sample={nums}")
+    except Exception:
+        pass
 
 
 async def link_payment_to_number(round_id, number, payment_id):
     db = get_db()
     await db.rounds.update_one(
-        {"_id": _oid(round_id), "numbers.number": number},
-        {"$set": {"numbers.$.payment_id": payment_id}},
+        {"_id": _oid(round_id)},
+        {"$set": {"numbers.$[elem].payment_id": payment_id}},
+        array_filters=[{"elem.number": number}],
     )
+    try:
+        print(f"[DB DEBUG] link_payment_to_number round_id={round_id} number={number} payment_id={payment_id}")
+    except Exception:
+        pass
 
 
 async def confirm_number(round_id, number, payment_id):
     db = get_db()
     await db.rounds.update_one(
-        {"_id": _oid(round_id), "numbers.number": number},
-        {"$set": {"numbers.$.status": "reserved", "numbers.$.payment_id": payment_id}},
+        {"_id": _oid(round_id)},
+        {"$set": {"numbers.$[elem].status": "reserved", "numbers.$[elem].payment_id": payment_id}},
+        array_filters=[{"elem.number": number}],
     )
+    try:
+        print(f"[DB DEBUG] confirm_number round_id={round_id} number={number} payment_id={payment_id}")
+    except Exception:
+        pass
 
 
 async def mark_payout_paid(round_id, telegram_id):
@@ -277,6 +311,13 @@ async def get_awaiting_proof_payment_for_user(telegram_id):
         {"telegram_id": telegram_id, "status": "awaiting_proof"},
         sort=[("created_at", -1)],
     )
+
+
+async def get_awaiting_proof_payments_for_user(telegram_id):
+    """Return all payments for this user that are awaiting proof (status awaiting_proof)."""
+    db = get_db()
+    cursor = db.payments.find({"telegram_id": telegram_id, "status": "awaiting_proof"}).sort([("created_at", -1)])
+    return [p async for p in cursor]
 
 
 async def get_awaiting_proof_payments_for_round_user(round_id, telegram_id):

@@ -2,7 +2,7 @@ from aiogram import Bot, F, Router
 from aiogram.types import Message
 
 from core.config import ADMIN_IDS
-from core.keyboards import build_review_kb
+from core.keyboards import build_review_kb, build_review_kb_multi
 from core.texts import CLAIM_RECEIVED, NO_PENDING_ACTION, PROOF_RECEIVED, format_user_identity
 from db import repository as repo
 
@@ -35,8 +35,8 @@ async def on_private_message(message: Message, bot: Bot):
         return
 
     # 2) Is this user mid-payment (needs to submit proof)?
-    payment = await repo.get_awaiting_proof_payment_for_user(user.id)
-    if payment:
+    payments = await repo.get_awaiting_proof_payments_for_user(user.id)
+    if payments:
         if message.photo:
             proof = {"type": "photo", "value": message.photo[-1].file_id}
         elif message.text:
@@ -45,18 +45,27 @@ async def on_private_message(message: Message, bot: Bot):
             await message.answer("Please send a payment screenshot or type your transaction ID.")
             return
 
-        await repo.submit_proof(payment["_id"], proof)
-        await message.answer(PROOF_RECEIVED.format(number=payment["number"]))
+        # Attach the same proof to all awaiting payments for this user
+        for p in payments:
+            await repo.submit_proof(p["_id"], proof)
+
+        numbers = ", ".join(f"{p['number']:02d}" for p in payments)
+        await message.answer(
+            "Got it! Your payment proof for the following numbers was sent for review:\n" + numbers
+        )
 
         display_name = f"{user.first_name or ''} {user.last_name or ''}".strip() or None
         user_str = format_user_identity(display_name, user.username, user.id)
+
+        # Send a single admin notification summarizing the batch
+        payment_ids = [str(p["_id"]) for p in payments]
         caption = (
-            "🧾 New payment for review\n"
-            f"Number: {payment['number']}\n"
+            "🧾 New payment(s) for review\n"
+            f"Numbers: {numbers}\n"
             f"User: {user_str}\n"
-            f"Amount: {payment['amount']} ETB"
+            f"Amount: {payments[0]['amount']} ETB (each)"
         )
-        kb = build_review_kb(str(payment["_id"]))
+        kb = build_review_kb_multi(payment_ids)
         for admin_id in ADMIN_IDS:
             try:
                 if proof["type"] == "photo":
