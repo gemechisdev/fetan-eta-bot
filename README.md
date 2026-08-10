@@ -217,8 +217,8 @@ services/draw_service.py    provably-fair draw + animation
 
 ## 7. Known MVP limitations (intentional — for the next iteration)
 
-- **No auto-expiry of pending numbers.** If someone taps a number and never
-  pays, it stays 🟡 until an admin rejects it manually.
+- **Pending reservations auto-expire.** Pending numbers are released after
+  `RESERVATION_TTL_MINUTES` (default 20) — configurable via your `.env`.
 - **Draw animation runs synchronously** inside the request/loop (a few
   seconds of `asyncio.sleep`). Fine for a handful of frames; for longer or
   smoother animations, move it to a periodic job that advances one frame
@@ -246,6 +246,16 @@ This project includes additional admin and UX improvements since the MVP:
 - Multiple selections: a single user may reserve multiple different numbers. The bot aggregates awaiting payments and DMs the user a single summary (numbers + total).
 - Reservation TTL: pending reservations auto-expire after `RESERVATION_TTL_MINUTES` (default 20). Set via env var in your `.env`.
 - Display names: the system stores and displays Telegram `display_name` when available for clearer admin messages.
+
+Recent fixes & improvements
+
+- Fixed incorrect board highlighting: updates to number state use MongoDB `arrayFilters` to target the exact `number` element (prevents earlier cases where reservations showed up on the first N buttons instead of the intended numbers).
+- Stable keyboard ordering: the number grid is now built from a numerically-sorted `numbers` list, protecting against DB array reorders.
+- Batch payment proofs: users with multiple pending numbers can submit one proof (photo/text) and the bot attaches it to all pending payments; admins receive a consolidated review message and can Approve All / Reject All.
+- Admin `/chat` command: `/chat <telegram_id> <text>` sends text to a user; replying to a message and running `/chat <telegram_id>` will forward/copy that replied message (supports media).
+- Admin notifications: the bot fetches admins from the DB plus env-configured IDs to ensure all admins are notified.
+- Board update target: board edits prefer the stored board message id (so the canonical board is updated for everyone), rather than editing the callback-originating message.
+- Debug helpers: lightweight debug prints (`[DB DEBUG]` / `[DEBUG]`) were added to help troubleshoot number state updates and callback handling during development.
 
 Admin management (DB-backed):
 
