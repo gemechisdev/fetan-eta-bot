@@ -53,3 +53,16 @@ def build_board_text(round_doc) -> str:
         f"Prize Pool\n{prize_lines}\n\n"
         f"Choose your lucky number below 👇"
     )
+
+
+def build_results_text(round_doc, results) -> str:
+    medals = ["🥇", "🥈", "🥉"]
+    lines = [f"🎉 <b>Results for FETAN ETA #{round_doc['round_number']}</b>", ""]
+    for r in results:
+        who = r.get("display_name") or (f"@{r.get('username')}" if r.get("username") else f"id:{r.get('telegram_id')}")
+        lines.append(f"{medals[r['place'] - 1]} Place #{r['place']}: Number {r['number']:02d} — {who} — Prize: {r['prize']} ETB")
+    lines.append("")
+    lines.append("Draw details:")
+    lines.append(f"Seed hash: {round_doc.get('draw', {}).get('seed_hash')}")
+    lines.append(f"Seed: {round_doc.get('draw', {}).get('seed')}")
+    return "\n".join(lines)

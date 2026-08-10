@@ -5,6 +5,7 @@ import secrets
 
 from db import repository as repo
 from aiogram.exceptions import TelegramBadRequest
+from core.texts import build_results_text
 
 
 async def commit_and_draw(round_doc, bot, chat_id):
@@ -94,4 +95,10 @@ async def commit_and_draw(round_doc, bot, chat_id):
         pass
 
     await repo.set_round_status(round_doc["_id"], "awaiting_claims")
+    # Send a separate detailed results message to the group
+    try:
+        await bot.send_message(chat_id, build_results_text(round_doc, results))
+    except Exception:
+        pass
+
     return results, None

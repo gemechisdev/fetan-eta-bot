@@ -129,6 +129,126 @@ async def cmd_cancel(message: Message):
     await message.answer(f"Round #{round_doc['round_number']} cancelled.")
 
 
+@router.message(Command("listrounds"))
+async def cmd_listrounds(message: Message):
+    if not await is_admin(message.from_user.id):
+        return
+
+    rounds = await repo.list_rounds(message.chat.id)
+    if not rounds:
+        await message.answer("No rounds yet.")
+        return
+    lines = []
+    for r in rounds:
+        lines.append(f"#{r['round_number']} — status: {r['status']} — created: {r['created_at']}")
+    await message.answer("\n".join(lines))
+
+
+@router.message(Command("showround"))
+async def cmd_showround(message: Message):
+    if not await is_admin(message.from_user.id):
+        return
+
+    parts = message.text.split()
+    try:
+        rn = int(parts[1])
+    except (IndexError, ValueError):
+        await message.answer("Usage: /showround round_number")
+        return
+
+    round_doc = await repo.get_round_by_number(message.chat.id, rn)
+    if not round_doc:
+        await message.answer("Round not found.")
+        return
+
+    # Build details
+    nums = []
+    for n in round_doc['numbers']:
+        owner = n.get('display_name') or n.get('username') or (f"id:{n.get('telegram_id')}" if n.get('telegram_id') else '-')
+        nums.append(f"{n['number']:02d}: {n['status']} — {owner}")
+    await message.answer(
+        f"Round #{round_doc['round_number']}\nStatus: {round_doc['status']}\n" + "\n".join(nums)
+    )
+
+
+@router.message(Command("deleteround"))
+async def cmd_deleteround(message: Message):
+    if not await is_admin(message.from_user.id):
+        return
+
+    parts = message.text.split()
+    try:
+        rn = int(parts[1])
+    except (IndexError, ValueError):
+        await message.answer("Usage: /deleteround round_number")
+        return
+
+    round_doc = await repo.get_round_by_number(message.chat.id, rn)
+    if not round_doc:
+        await message.answer("Round not found.")
+        return
+
+    await repo.delete_round(round_doc['_id'])
+    await message.answer(f"Deleted round #{rn}.")
+
+
+@router.message(Command("resendboard"))
+async def cmd_resendboard(message: Message, bot: Bot):
+    if not await is_admin(message.from_user.id):
+        return
+
+    parts = message.text.split()
+    try:
+        rn = int(parts[1])
+    except (IndexError, ValueError):
+        await message.answer("Usage: /resendboard round_number")
+        return
+
+    round_doc = await repo.get_round_by_number(message.chat.id, rn)
+    if not round_doc:
+        await message.answer("Round not found.")
+        return
+
+    board_msg = await message.answer(build_board_text(round_doc), reply_markup=build_number_grid(round_doc))
+    await repo.set_board_message_id(round_doc['_id'], board_msg.message_id)
+    await message.answer('Board resent and message id updated.')
+
+
+@router.message(Command("assignnumber"))
+async def cmd_assignnumber(message: Message, bot: Bot):
+    if not await is_admin(message.from_user.id):
+        return
+
+    parts = message.text.split()
+    # Usage: /assignnumber round_number number telegram_id|@username [display_name]
+    try:
+        rn = int(parts[1])
+        number = int(parts[2])
+        who = parts[3]
+        display_name = " ".join(parts[4:]) if len(parts) > 4 else None
+    except (IndexError, ValueError):
+        await message.answer("Usage: /assignnumber round_number number telegram_id|@username [display_name]")
+        return
+
+    round_doc = await repo.get_round_by_number(message.chat.id, rn)
+    if not round_doc:
+        await message.answer("Round not found.")
+        return
+
+    telegram_id = None
+    username = None
+    if who.startswith("@"):
+        username = who[1:]
+    else:
+        try:
+            telegram_id = int(who)
+        except ValueError:
+            username = who
+
+    await repo.assign_number(round_doc['_id'], number, telegram_id=telegram_id, username=username, display_name=display_name)
+    await message.answer(f"Assigned number {number:02d} in round #{rn} to {who}.")
+
+
 @router.message(Command("payout"))
 async def cmd_payout(message: Message, bot: Bot):
     if not is_admin(message.from_user.id):

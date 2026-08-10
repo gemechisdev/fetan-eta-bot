@@ -82,6 +82,40 @@ async def get_round_by_number(chat_id, round_number):
     return await db.rounds.find_one({"chat_id": chat_id, "round_number": round_number})
 
 
+async def list_rounds(chat_id):
+    db = get_db()
+    cursor = db.rounds.find({"chat_id": chat_id}).sort([("created_at", -1)])
+    return [r async for r in cursor]
+
+
+async def delete_round(round_id):
+    db = get_db()
+    await db.rounds.delete_one({"_id": _oid(round_id)})
+
+
+async def assign_number(round_id, number, telegram_id=None, username=None, display_name=None):
+    """Force-assign a number to a user (admin action). Marks the number as reserved.
+    If telegram_id is provided, set it; otherwise set username/display_name only."""
+    db = get_db()
+    update = {
+        "$set": {
+            "numbers.$.status": "reserved",
+            "numbers.$.payment_id": None,
+            "numbers.$.reserved_at": utcnow(),
+        }
+    }
+    if telegram_id is not None:
+        update["$set"]["numbers.$.telegram_id"] = int(telegram_id)
+    else:
+        update["$set"]["numbers.$.telegram_id"] = None
+    if username is not None:
+        update["$set"]["numbers.$.username"] = username
+    if display_name is not None:
+        update["$set"]["numbers.$.display_name"] = display_name
+
+    await db.rounds.update_one({"_id": _oid(round_id), "numbers.number": number}, update)
+
+
 async def get_next_round_number(chat_id):
     db = get_db()
     last = await db.rounds.find_one({"chat_id": chat_id}, sort=[("round_number", -1)])
