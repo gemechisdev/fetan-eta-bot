@@ -11,13 +11,13 @@ from services import draw_service, round_service
 router = Router(name="admin")
 
 
-def is_admin(user_id: int) -> bool:
-    return user_id in ADMIN_IDS
+async def is_admin(user_id: int) -> bool:
+    return await repo.is_user_admin(user_id)
 
 
 @router.message(Command("newround"))
 async def cmd_newround(message: Message):
-    if not is_admin(message.from_user.id):
+    if not await is_admin(message.from_user.id):
         return
 
     parts = message.text.split()
@@ -43,7 +43,7 @@ async def cmd_newround(message: Message):
 
 @router.message(Command("closeregistration"))
 async def cmd_close(message: Message):
-    if not is_admin(message.from_user.id):
+    if not await is_admin(message.from_user.id):
         return
 
     round_doc = await repo.get_active_round(message.chat.id)
@@ -57,7 +57,7 @@ async def cmd_close(message: Message):
 
 @router.message(Command("startdraw"))
 async def cmd_startdraw(message: Message, bot: Bot):
-    if not is_admin(message.from_user.id):
+    if not await is_admin(message.from_user.id):
         return
 
     round_doc = await repo.get_active_round(message.chat.id)
@@ -94,7 +94,7 @@ async def cmd_startdraw(message: Message, bot: Bot):
 
 @router.message(Command("pending"))
 async def cmd_pending(message: Message):
-    if not is_admin(message.from_user.id):
+    if not await is_admin(message.from_user.id):
         return
 
     round_doc = await repo.get_active_round(message.chat.id)
@@ -108,15 +108,16 @@ async def cmd_pending(message: Message):
         return
 
     for p in pending:
+        who = p.get("display_name") or p.get("username") or p["telegram_id"]
         await message.answer(
-            f"Number {p['number']:02d} — @{p.get('username') or p['telegram_id']} — {p['amount']} ETB",
+            f"Number {p['number']:02d} — {who} — {p['amount']} ETB",
             reply_markup=build_review_kb(str(p["_id"])),
         )
 
 
 @router.message(Command("cancelround"))
 async def cmd_cancel(message: Message):
-    if not is_admin(message.from_user.id):
+    if not await is_admin(message.from_user.id):
         return
 
     round_doc = await repo.get_active_round(message.chat.id)
@@ -154,9 +155,51 @@ async def cmd_payout(message: Message, bot: Bot):
         pass
 
 
+@router.message(Command("addadmin"))
+async def cmd_addadmin(message: Message):
+    if not await is_admin(message.from_user.id):
+        return
+
+    parts = message.text.split()
+    try:
+        aid = int(parts[1])
+    except (IndexError, ValueError):
+        await message.answer("Usage: /addadmin telegram_id")
+        return
+
+    await repo.add_admin(aid)
+    await message.answer(f"Added {aid} as admin.")
+
+
+@router.message(Command("deladmin"))
+async def cmd_deladmin(message: Message):
+    if not await is_admin(message.from_user.id):
+        return
+
+    parts = message.text.split()
+    try:
+        aid = int(parts[1])
+    except (IndexError, ValueError):
+        await message.answer("Usage: /deladmin telegram_id")
+        return
+
+    await repo.remove_admin(aid)
+    await message.answer(f"Removed {aid} from admins.")
+
+
+@router.message(Command("listadmins"))
+async def cmd_listadmins(message: Message):
+    if not await is_admin(message.from_user.id):
+        return
+
+    admins = await repo.get_admins()
+    lines = [str(a) for a in admins]
+    await message.answer("Admins:\n" + "\n".join(lines))
+
+
 @router.callback_query(F.data.startswith("rev:"))
 async def on_review(callback: CallbackQuery, bot: Bot):
-    if not is_admin(callback.from_user.id):
+    if not await is_admin(callback.from_user.id):
         await callback.answer("Admins only.", show_alert=True)
         return
 

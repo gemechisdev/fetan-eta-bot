@@ -1,4 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from typing import List
+
+from core import config as core_config
 
 from bson import ObjectId
 
@@ -33,6 +36,7 @@ async def create_round(chat_id, round_number, ticket_price, total_numbers, prize
             "status": "available",
             "telegram_id": None,
             "username": None,
+            "display_name": None,
             "payment_id": None,
             "reserved_at": None,
         }
@@ -106,7 +110,7 @@ async def set_draw_field(round_id, **fields):
 
 # ---- number state transitions (all atomic, filtered on current status) ----
 
-async def reserve_number_pending(round_id, number, telegram_id, username):
+async def reserve_number_pending(round_id, number, telegram_id, username, display_name=None):
     """Atomically flips an available number to pending.
     Returns True only if this call is the one that won the race."""
     db = get_db()
@@ -117,6 +121,7 @@ async def reserve_number_pending(round_id, number, telegram_id, username):
                 "numbers.$.status": "pending",
                 "numbers.$.telegram_id": telegram_id,
                 "numbers.$.username": username,
+                "numbers.$.display_name": display_name,
                 "numbers.$.reserved_at": utcnow(),
             }
         },
@@ -133,6 +138,7 @@ async def release_number(round_id, number):
                 "numbers.$.status": "available",
                 "numbers.$.telegram_id": None,
                 "numbers.$.username": None,
+                "numbers.$.display_name": None,
                 "numbers.$.payment_id": None,
                 "numbers.$.reserved_at": None,
             }
@@ -199,13 +205,20 @@ async def set_payout_account(round_id, telegram_id, account_text):
 # Payments
 # ---------------------------------------------------------------------------
 
-async def create_payment(round_id, number, telegram_id, username, amount):
+async def create_payment(round_id, number, telegram_id, username, amount, display_name=None):
     db = get_db()
+    # Prevent creating duplicate payments for the same round+number
+    existing = await db.payments.find_one(
+        {"round_id": round_id, "number": number, "status": {"$in": ["awaiting_proof", "awaiting_review"]}}
+    )
+    if existing:
+        return existing
     doc = {
         "round_id": round_id,
         "number": number,
         "telegram_id": telegram_id,
         "username": username,
+        "display_name": display_name,
         "amount": amount,
         "proof": None,
         "status": "awaiting_proof",
@@ -230,6 +243,88 @@ async def get_awaiting_proof_payment_for_user(telegram_id):
         {"telegram_id": telegram_id, "status": "awaiting_proof"},
         sort=[("created_at", -1)],
     )
+
+
+async def get_awaiting_proof_payments_for_round_user(round_id, telegram_id):
+    db = get_db()
+    cursor = db.payments.find({"round_id": round_id, "telegram_id": telegram_id, "status": "awaiting_proof"})
+    return [p async for p in cursor]
+
+
+async def expire_pending_reservations(round_id, ttl_minutes):
+    """Releases any 'pending' numbers that were reserved more than ttl_minutes ago."""
+    db = get_db()
+    cutoff = utcnow() - timedelta(minutes=ttl_minutes)
+    # Update any numbers array elements matching pending and older than cutoff.
+    await db.rounds.update_one(
+        {"_id": _oid(round_id)},
+        {
+            "$set": {
+                "numbers.$[elem].status": "available",
+                "numbers.$[elem].telegram_id": None,
+                "numbers.$[elem].username": None,
+                "numbers.$[elem].display_name": None,
+                "numbers.$[elem].payment_id": None,
+                "numbers.$[elem].reserved_at": None,
+            }
+        },
+        array_filters=[{"elem.status": "pending", "elem.reserved_at": {"$lt": cutoff}}],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Admin management
+# ---------------------------------------------------------------------------
+
+async def add_admin(telegram_id: int):
+    db = get_db()
+    doc = {"telegram_id": int(telegram_id), "added_at": utcnow()}
+    await db.admins.update_one({"telegram_id": int(telegram_id)}, {"$setOnInsert": doc}, upsert=True)
+
+
+async def remove_admin(telegram_id: int):
+    db = get_db()
+    await db.admins.delete_one({"telegram_id": int(telegram_id)})
+
+
+async def get_admins() -> List[int]:
+    db = get_db()
+    cursor = db.admins.find({})
+    docs = [d async for d in cursor]
+    ids = {int(d["telegram_id"]) for d in docs}
+    # also include any configured via env
+    ids.update(core_config.ADMIN_IDS)
+    return sorted(ids)
+
+
+async def is_user_admin(telegram_id: int) -> bool:
+    if int(telegram_id) in core_config.ADMIN_IDS:
+        return True
+    db = get_db()
+    doc = await db.admins.find_one({"telegram_id": int(telegram_id)})
+    return doc is not None
+
+
+async def ensure_admins_from_env():
+    """Ensure ADMIN_IDS from env are present in the admins collection."""
+    db = get_db()
+    for aid in core_config.ADMIN_IDS:
+        await db.admins.update_one({"telegram_id": int(aid)}, {"$setOnInsert": {"telegram_id": int(aid), "added_at": utcnow()}}, upsert=True)
+
+
+async def cancel_payment_for_user(round_id, number, telegram_id):
+    """Mark the user's awaiting payment for this round+number as cancelled.
+    Returns True if a payment was cancelled, False otherwise."""
+    db = get_db()
+    res = await db.payments.update_one(
+        {"round_id": round_id, "number": number, "telegram_id": telegram_id, "status": {"$in": ["awaiting_proof", "awaiting_review"]}},
+        {"$set": {"status": "cancelled", "cancelled_at": utcnow()}},
+    )
+    if res.modified_count:
+        # Also release the number in the round doc
+        await release_number(round_id, number)
+        return True
+    return False
 
 
 async def submit_proof(payment_id, proof):

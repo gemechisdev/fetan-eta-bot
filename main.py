@@ -25,6 +25,7 @@ from core.config import PORT, RUN_MODE
 from core.dispatcher import build_dispatcher
 from core.webserver import build_web_app
 from db.client import ping_db
+from db import repository as repo
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -39,6 +40,11 @@ async def _check_db_or_exit():
     try:
         await ping_db()
         logger.info("MongoDB connection OK.")
+        # Ensure any ADMIN_IDS configured via env are present in the DB
+        try:
+            await repo.ensure_admins_from_env()
+        except Exception:
+            logger.warning("Could not seed admins from env into DB.")
     except Exception as e:
         logger.error(
             "Could not connect to MongoDB. Double-check MONGO_URI, and if "

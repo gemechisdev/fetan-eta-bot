@@ -42,6 +42,10 @@ PUBLIC_URL = os.environ.get("PUBLIC_URL", "").strip()
 # Fly, Heroku, Cloud Run...) inject this automatically for web services.
 PORT = int(os.environ.get("PORT", 8080))
 
+# How many minutes to reserve a number while awaiting payment proof
+# If a pending reservation is older than this it will be released
+RESERVATION_TTL_MINUTES = int(os.environ.get("RESERVATION_TTL_MINUTES", "20"))
+
 # RUN_MODE controls how main.py / app.py / bot.py behave:
 #   "polling"  -> long-lived polling loop, no public URL/port needed
 #   "webhook"  -> starts an HTTP server (aiohttp) with health/ping routes

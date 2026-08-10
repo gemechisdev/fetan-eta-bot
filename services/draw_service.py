@@ -4,6 +4,7 @@ import random
 import secrets
 
 from db import repository as repo
+from aiogram.exceptions import TelegramBadRequest
 
 
 async def commit_and_draw(round_doc, bot, chat_id):
@@ -35,7 +36,8 @@ async def commit_and_draw(round_doc, bot, chat_id):
                 "place": i + 1,
                 "number": w["number"],
                 "telegram_id": w["telegram_id"],
-                "username": w["username"],
+                "username": w.get("username"),
+                "display_name": w.get("display_name"),
                 "prize": prizes[i] if i < len(prizes) else 0,
                 "payout_account": None,
                 "payout_status": "awaiting_details",
@@ -67,19 +69,29 @@ async def commit_and_draw(round_doc, bot, chat_id):
     for _ in range(6):
         await asyncio.sleep(0.6)
         fake = rng.choice(all_numbers)
-        await bot.edit_message_text(
-            f"🎲 Drawing... {fake:02d}", chat_id=chat_id, message_id=msg.message_id
-        )
+        try:
+            await bot.edit_message_text(
+                f"🎲 Drawing... {fake:02d}", chat_id=chat_id, message_id=msg.message_id
+            )
+        except TelegramBadRequest:
+            # Ignore "message is not modified" and similar transient edit errors
+            pass
 
     # 3) Reveal results + the raw seed so the draw is auditable.
     medals = ["🥇", "🥈", "🥉"]
     lines = ["🏆 <b>Results</b>", ""]
     for r in results:
-        who = f"@{r['username']}" if r["username"] else f"id:{r['telegram_id']}"
+        if r.get("display_name"):
+            who = f"{r['display_name']} (@{r['username'] or ''})"
+        else:
+            who = f"@{r['username']}" if r.get("username") else f"id:{r['telegram_id']}"
         lines.append(f"{medals[r['place'] - 1]} Number {r['number']:02d} — {who} — {r['prize']} ETB")
     lines.append("")
     lines.append(f"Seed (verify it yourself): <code>{seed}</code>")
-    await bot.edit_message_text("\n".join(lines), chat_id=chat_id, message_id=msg.message_id)
+    try:
+        await bot.edit_message_text("\n".join(lines), chat_id=chat_id, message_id=msg.message_id)
+    except TelegramBadRequest:
+        pass
 
     await repo.set_round_status(round_doc["_id"], "awaiting_claims")
     return results, None

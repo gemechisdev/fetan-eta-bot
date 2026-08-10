@@ -15,7 +15,7 @@ async def start_new_round(chat_id, ticket_price, prizes, total_numbers=DEFAULT_T
     return round_doc, None
 
 
-async def select_number(round_doc, number, telegram_id, username):
+async def select_number(round_doc, number, telegram_id, username, display_name=None):
     if round_doc["status"] != "registration_open":
         return None, "Registration is closed for this round."
 
@@ -23,12 +23,23 @@ async def select_number(round_doc, number, telegram_id, username):
     if number not in valid_numbers:
         return None, "Invalid number."
 
-    won_race = await repo.reserve_number_pending(round_doc["_id"], number, telegram_id, username)
+    won_race = await repo.reserve_number_pending(round_doc["_id"], number, telegram_id, username, display_name)
     if not won_race:
+        # Provide info about who currently holds the number if possible
+        fresh = await repo.get_round(round_doc["_id"])
+        holder = None
+        if fresh:
+            for n in fresh["numbers"]:
+                if n["number"] == number:
+                    holder = n
+                    break
+        if holder and holder.get("telegram_id"):
+            who = holder.get("display_name") or holder.get("username") or f"id:{holder.get('telegram_id')}"
+            return None, f"That number is already reserved by {who}. Pick another one."
         return None, "That number was just taken. Pick another one."
 
     payment = await repo.create_payment(
-        round_doc["_id"], number, telegram_id, username, round_doc["config"]["ticket_price"]
+        round_doc["_id"], number, telegram_id, username, round_doc["config"]["ticket_price"], display_name=display_name
     )
     await repo.link_payment_to_number(round_doc["_id"], number, payment["_id"])
     return payment, None
@@ -36,6 +47,17 @@ async def select_number(round_doc, number, telegram_id, username):
 
 async def cancel_selection(round_doc, number):
     """Releases a number back to available (e.g. user unreachable via DM)."""
+    # First try to cancel any awaiting payment for the current reserver
+    # If none found, just release the number
+    # We don't know which user to cancel for here; attempt a generic cancel
+    # by checking the round document for the current holder.
+    fresh = await repo.get_round(round_doc["_id"])
+    if fresh:
+        holder = next((n for n in fresh["numbers"] if n["number"] == number), None)
+        if holder and holder.get("telegram_id"):
+            await repo.cancel_payment_for_user(round_doc["_id"], number, holder["telegram_id"])
+            return
+
     await repo.release_number(round_doc["_id"], number)
 
 
