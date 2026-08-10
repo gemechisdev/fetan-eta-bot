@@ -26,7 +26,7 @@ async def cmd_newround(message: Message):
         prizes = [int(parts[2]), int(parts[3]), int(parts[4])]
         total_numbers = int(parts[5]) if len(parts) > 5 else 20
     except (IndexError, ValueError):
-        await message.answer("Usage: /newround <price> <prize1> <prize2> <prize3> [total_numbers]")
+        await message.answer("Usage: /newround price prize1 prize2 prize3 [total_numbers]")
         return
 
     round_doc, error = await round_service.start_new_round(message.chat.id, price, prizes, total_numbers)
@@ -138,7 +138,7 @@ async def cmd_payout(message: Message, bot: Bot):
         round_number = int(parts[1])
         telegram_id = int(parts[2])
     except (IndexError, ValueError):
-        await message.answer("Usage: /payout <round_number> <telegram_id>")
+        await message.answer("Usage: /payout round_number telegram_id")
         return
 
     round_doc = await repo.get_round_by_number(message.chat.id, round_number)

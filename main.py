@@ -17,12 +17,14 @@ If RUN_MODE isn't set, we default to "webhook" when PORT is present
 
 import asyncio
 import logging
+import sys
 
 from aiohttp import web
 
 from core.config import PORT, RUN_MODE
 from core.dispatcher import build_dispatcher
 from core.webserver import build_web_app
+from db.client import ping_db
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -30,8 +32,26 @@ logging.basicConfig(
 logger = logging.getLogger("fetan-eta.main")
 
 
+async def _check_db_or_exit():
+    """Fails fast with a clear message if Mongo isn't reachable, instead of
+    letting the first /newround blow up with a 30s timeout buried in a
+    random handler's traceback."""
+    try:
+        await ping_db()
+        logger.info("MongoDB connection OK.")
+    except Exception as e:
+        logger.error(
+            "Could not connect to MongoDB. Double-check MONGO_URI, and if "
+            "you're on MongoDB Atlas, make sure your current IP is allowed "
+            "in Atlas -> Network Access. Raw error: %s",
+            e,
+        )
+        sys.exit(1)
+
+
 def run_polling():
     async def _run():
+        await _check_db_or_exit()
         dp, bot = build_dispatcher()
         await bot.delete_webhook(drop_pending_updates=True)
         logger.info("Starting in POLLING mode...")
@@ -41,6 +61,7 @@ def run_polling():
 
 
 def run_webhook():
+    asyncio.run(_check_db_or_exit())
     app = build_web_app()
     logger.info(f"Starting in WEBHOOK mode on 0.0.0.0:{PORT} ...")
     web.run_app(app, host="0.0.0.0", port=PORT)

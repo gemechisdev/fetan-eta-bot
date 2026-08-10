@@ -15,6 +15,11 @@ BOT_TOKEN = os.environ["BOT_TOKEN"]
 MONGO_URI = os.environ["MONGO_URI"]
 MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "fetan_eta")
 
+# How long to wait for MongoDB to respond before giving up. Bump this via
+# .env if you're on a slow/VPN'd connection (e.g. WSL) and see
+# "No replica set members found yet" even though the DB is actually fine.
+MONGO_TIMEOUT_MS = int(os.environ.get("MONGO_TIMEOUT_MS", "20000"))
+
 # Comma separated telegram user ids, e.g. "111111111,222222222"
 ADMIN_IDS = {
     int(x) for x in os.environ.get("ADMIN_IDS", "").split(",") if x.strip()
