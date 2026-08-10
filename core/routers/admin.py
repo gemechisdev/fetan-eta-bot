@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery, Message
 
 from core.config import ADMIN_IDS
 from core.keyboards import build_number_grid, build_review_kb
-from core.texts import build_board_text
+from core.texts import build_board_text, format_user_identity
 from db import repository as repo
 from services import draw_service, round_service
 
@@ -38,6 +38,11 @@ async def cmd_newround(message: Message):
         build_board_text(round_doc),
         reply_markup=build_number_grid(round_doc),
     )
+    # pin the board message
+    try:
+        await message.bot.pin_chat_message(chat_id=message.chat.id, message_id=board_msg.message_id)
+    except Exception:
+        pass
     await repo.set_board_message_id(round_doc["_id"], board_msg.message_id)
 
 
@@ -108,7 +113,7 @@ async def cmd_pending(message: Message):
         return
 
     for p in pending:
-        who = p.get("display_name") or p.get("username") or p["telegram_id"]
+        who = format_user_identity(p.get("display_name"), p.get("username"), p.get("telegram_id"))
         await message.answer(
             f"Number {p['number']:02d} — {who} — {p['amount']} ETB",
             reply_markup=build_review_kb(str(p["_id"])),
@@ -172,7 +177,7 @@ async def cmd_showround(message: Message):
 
 
 @router.message(Command("deleteround"))
-async def cmd_deleteround(message: Message):
+async def cmd_deleteround(message: Message, bot: Bot):
     if not await is_admin(message.from_user.id):
         return
 
@@ -187,6 +192,14 @@ async def cmd_deleteround(message: Message):
     if not round_doc:
         await message.answer("Round not found.")
         return
+
+    # delete stored board message if present
+    board_id = round_doc.get('message_refs', {}).get('board_message_id')
+    if board_id:
+        try:
+            await bot.delete_message(chat_id=message.chat.id, message_id=board_id)
+        except Exception:
+            pass
 
     await repo.delete_round(round_doc['_id'])
     await message.answer(f"Deleted round #{rn}.")
@@ -209,9 +222,20 @@ async def cmd_resendboard(message: Message, bot: Bot):
         await message.answer("Round not found.")
         return
 
+    prev_id = round_doc.get('message_refs', {}).get('board_message_id')
     board_msg = await message.answer(build_board_text(round_doc), reply_markup=build_number_grid(round_doc))
+    # unpin previous board if exists
+    if prev_id and prev_id != board_msg.message_id:
+        try:
+            await bot.unpin_chat_message(chat_id=message.chat.id, message_id=prev_id)
+        except Exception:
+            pass
+    # pin new board
+    try:
+        await bot.pin_chat_message(chat_id=message.chat.id, message_id=board_msg.message_id)
+    except Exception:
+        pass
     await repo.set_board_message_id(round_doc['_id'], board_msg.message_id)
-    await message.answer('Board resent and message id updated.')
 
 
 @router.message(Command("assignnumber"))
@@ -246,6 +270,23 @@ async def cmd_assignnumber(message: Message, bot: Bot):
             username = who
 
     await repo.assign_number(round_doc['_id'], number, telegram_id=telegram_id, username=username, display_name=display_name)
+    # update board message display
+    fresh = await repo.get_round(round_doc['_id'])
+    board_id = fresh['message_refs'].get('board_message_id')
+    if board_id:
+        try:
+            await bot.edit_message_text(build_board_text(fresh), chat_id=message.chat.id, message_id=board_id)
+            await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=board_id, reply_markup=build_number_grid(fresh))
+        except Exception:
+            pass
+    # Send DM to user if we have a telegram id
+    if telegram_id:
+        try:
+            display = display_name or (username if username else None)
+            user_str = format_user_identity(display, username, telegram_id)
+            await bot.send_message(telegram_id, f"You were assigned number {number:02d} in round #{rn} by an admin.\n\nAssigned to: {user_str}")
+        except Exception:
+            pass
     await message.answer(f"Assigned number {number:02d} in round #{rn} to {who}.")
 
 

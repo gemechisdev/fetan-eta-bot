@@ -66,3 +66,12 @@ def build_results_text(round_doc, results) -> str:
     lines.append(f"Seed hash: {round_doc.get('draw', {}).get('seed_hash')}")
     lines.append(f"Seed: {round_doc.get('draw', {}).get('seed')}")
     return "\n".join(lines)
+
+
+def format_user_identity(display_name: str | None, username: str | None, telegram_id: int | None) -> str:
+    """Return a standardized string: Display Name - @username - id
+    Use 'None' for missing username and '-' for missing display name."""
+    disp = display_name if display_name else "-"
+    userpart = f"@{username}" if username else "None"
+    idpart = str(telegram_id) if telegram_id else "None"
+    return f"{disp} - {userpart} - {idpart}"

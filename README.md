@@ -23,6 +23,7 @@ cp .env.example .env            # then fill in the real values
 ```
 
 You need:
+
 - A bot token from **@BotFather**.
 - A free **MongoDB Atlas** cluster (or local `mongod`) connection string.
 - Your own Telegram numeric user ID (and any co-admins) for `ADMIN_IDS`.
@@ -58,10 +59,10 @@ group, make it an admin, and try the flow:
 Every entrypoint (`main.py`, `app.py`, `bot.py`) shares the same logic,
 controlled by env vars — **not** by which file you run:
 
-| RUN_MODE | Behavior | Needs |
-|---|---|---|
-| `polling` | Long-lived polling loop | Just `BOT_TOKEN` + `MONGO_URI` — works anywhere, even with no public URL at all (VPS, systemd, a background worker dyno) |
-| `webhook` | Starts an aiohttp server exposing `/` `/health` `/ping` (health checks / keep-alive pings) and `/webhook` (Telegram updates) | A public URL platforms can reach — set `PUBLIC_URL` so it self-registers the webhook on startup |
+| RUN_MODE  | Behavior                                                                                                                     | Needs                                                                                                                    |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `polling` | Long-lived polling loop                                                                                                      | Just `BOT_TOKEN` + `MONGO_URI` — works anywhere, even with no public URL at all (VPS, systemd, a background worker dyno) |
+| `webhook` | Starts an aiohttp server exposing `/` `/health` `/ping` (health checks / keep-alive pings) and `/webhook` (Telegram updates) | A public URL platforms can reach — set `PUBLIC_URL` so it self-registers the webhook on startup                          |
 
 If `RUN_MODE` isn't set explicitly, it's auto-detected: **webhook** if
 `PORT` is present (most PaaS web services inject this automatically),
@@ -71,6 +72,7 @@ If `RUN_MODE` isn't set explicitly, it's auto-detected: **webhook** if
 ## 4. Deployment options
 
 ### A) Vercel (serverless, original setup — still supported)
+
 ```bash
 vercel
 vercel env add BOT_TOKEN
@@ -80,40 +82,51 @@ vercel env add ADMIN_IDS
 vercel env add WEBHOOK_SECRET
 vercel --prod
 ```
+
 Then register the webhook once (serverless has no startup hook to do this
 automatically):
+
 ```bash
 export BOT_TOKEN=... WEBHOOK_URL=https://your-app.vercel.app/api/webhook WEBHOOK_SECRET=...
 python set_webhook.py
 ```
+
 Health check: `GET https://your-app.vercel.app/api/webhook` → `{"status": "alive"}`.
 
 ### B) Docker (any host that runs containers)
+
 ```bash
 docker build -t fetan-eta-bot .
 docker run -d --env-file .env -p 8080:8080 \
   -e PUBLIC_URL=https://your-domain.example \
   fetan-eta-bot
 ```
+
 The image's `HEALTHCHECK` hits `/health` automatically. Run it as a
 background worker instead (no public URL needed) with:
+
 ```bash
 docker run -d --env-file .env -e RUN_MODE=polling fetan-eta-bot
 ```
 
 ### C) `docker-compose` (local dev with a real Mongo, no Atlas needed)
+
 ```bash
 docker compose up
 ```
+
 Runs the bot in polling mode against a local Mongo container — good for
 testing the full flow without touching a cloud database.
 
 ### D) Railway / Render / Fly.io / Heroku-style platforms
+
 These all understand a `Procfile`:
+
 ```
 web: python main.py
 worker: RUN_MODE=polling python main.py
 ```
+
 Pick the `web` process type if you want a public webhook service (set
 `PUBLIC_URL` to whatever domain the platform gives you, and it self-hosts
 the webhook + health checks), or `worker` for a simple polling background
@@ -126,13 +139,16 @@ uptime pinger like UptimeRobot/cron-job.org) needs something to hit
 periodically to prevent the service from sleeping on free tiers.
 
 ### E) gunicorn (production-grade aiohttp serving)
+
 ```bash
 gunicorn -k aiohttp.GunicornWebWorker -b 0.0.0.0:8080 app:app
 ```
+
 `app.py` exposes a ready-built aiohttp `Application` at import time
 specifically for this.
 
 ### F) Plain VPS / systemd (long-running, no container)
+
 ```ini
 # /etc/systemd/system/fetan-eta-bot.service
 [Unit]
@@ -149,19 +165,20 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 ```
+
 Polling mode needs no public URL, no reverse proxy, nothing — just a
 running process.
 
 ## 5. Admin commands (run inside the group)
 
-| Command | Purpose |
-|---|---|
-| `/newround <price> <p1> <p2> <p3> [total_numbers]` | Start a round (default 20 numbers) |
-| `/closeregistration` | Lock number selection, prepare for draw |
-| `/startdraw` | Run the provably-fair draw + animation |
-| `/pending` | List payments awaiting review with Approve/Reject buttons |
-| `/cancelround` | Void the current round |
-| `/payout <round_number> <telegram_id>` | Mark a winner's prize as paid |
+| Command                                            | Purpose                                                   |
+| -------------------------------------------------- | --------------------------------------------------------- |
+| `/newround <price> <p1> <p2> <p3> [total_numbers]` | Start a round (default 20 numbers)                        |
+| `/closeregistration`                               | Lock number selection, prepare for draw                   |
+| `/startdraw`                                       | Run the provably-fair draw + animation                    |
+| `/pending`                                         | List payments awaiting review with Approve/Reject buttons |
+| `/cancelround`                                     | Void the current round                                    |
+| `/payout <round_number> <telegram_id>`             | Mark a winner's prize as paid                             |
 
 ## 6. Project layout
 
@@ -220,3 +237,33 @@ services/draw_service.py    provably-fair draw + animation
   written transport-agnostic so a future REST layer can reuse them).
 - Automatic payment verification (Telebirr/bank API or SMS parsing).
 - `/history` and `/export` admin commands, multi-group support.
+
+## 9. New features & admin commands (added)
+
+This project includes additional admin and UX improvements since the MVP:
+
+- Selection toggle: tapping a number in the group toggles selection for the tapping user. Tap once to reserve (pending, yellow), tap again to cancel (deselect).
+- Multiple selections: a single user may reserve multiple different numbers. The bot aggregates awaiting payments and DMs the user a single summary (numbers + total).
+- Reservation TTL: pending reservations auto-expire after `RESERVATION_TTL_MINUTES` (default 20). Set via env var in your `.env`.
+- Display names: the system stores and displays Telegram `display_name` when available for clearer admin messages.
+
+Admin management (DB-backed):
+
+- `/addadmin <telegram_id>` — add an admin persisted in the DB
+- `/deladmin <telegram_id>` — remove admin from DB
+- `/listadmins` — list admins (includes env-configured IDs)
+
+Round management commands:
+
+- `/listrounds` — list all rounds in the chat (number, status, created_at)
+- `/showround <round_number>` — print detailed list of numbers, their status and owner
+- `/deleteround <round_number>` — delete a round and remove its board message
+- `/resendboard <round_number>` — repost the board and update stored board message id (no extra confirmation message)
+- `/assignnumber <round_number> <number> <telegram_id|@username> [display_name]` — admin force-assigns a number; updates the board to show it reserved
+
+Other behaviour changes:
+
+- After a draw, the bot posts a separate detailed results message (winners, prizes, seed/hash).
+- All actions that change number state attempt to update the board message in the group immediately (selection, deselection, approval, rejection, manual assignment, resend, delete).
+
+Refer to the `/help` and admin commands in the group for on-the-fly usage; check `core/routers/admin.py` for exact command formats.

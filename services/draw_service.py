@@ -5,7 +5,7 @@ import secrets
 
 from db import repository as repo
 from aiogram.exceptions import TelegramBadRequest
-from core.texts import build_results_text
+from core.texts import build_results_text, format_user_identity
 
 
 async def commit_and_draw(round_doc, bot, chat_id):
@@ -82,10 +82,7 @@ async def commit_and_draw(round_doc, bot, chat_id):
     medals = ["🥇", "🥈", "🥉"]
     lines = ["🏆 <b>Results</b>", ""]
     for r in results:
-        if r.get("display_name"):
-            who = f"{r['display_name']} (@{r['username'] or ''})"
-        else:
-            who = f"@{r['username']}" if r.get("username") else f"id:{r['telegram_id']}"
+        who = format_user_identity(r.get("display_name"), r.get("username"), r.get("telegram_id"))
         lines.append(f"{medals[r['place'] - 1]} Number {r['number']:02d} — {who} — {r['prize']} ETB")
     lines.append("")
     lines.append(f"Seed (verify it yourself): <code>{seed}</code>")

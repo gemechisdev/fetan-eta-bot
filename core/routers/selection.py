@@ -80,12 +80,44 @@ async def on_number_tap(callback: CallbackQuery, bot: Bot):
                     f"{user.first_name or user_ref} ({user_ref}), please start a private chat with the bot first "
                     f"(search @{(await bot.get_me()).username} and press Start), then tap the number again.",
                 )
+            else:
+                # After successful reservation DM, nothing more to do here
+                pass
 
     elif status == "pending":
         if owner_id == user.id:
             # Deselect / cancel the pending reservation
             await round_service.cancel_selection(fresh_round, number)
+            # Force-release as a safety net to ensure DB reflects cancellation
+            try:
+                await repo.release_number(fresh_round["_id"], number)
+            except Exception:
+                pass
             await callback.answer(f"Selection {number} cancelled.")
+            # Send updated DM summarizing current awaiting payments for this user
+            try:
+                pending_payments = await repo.get_awaiting_proof_payments_for_round_user(fresh_round["_id"], user.id)
+                seen = set()
+                numbers_list = []
+                total = 0
+                for p in pending_payments:
+                    num = p["number"]
+                    if num not in seen:
+                        seen.add(num)
+                        numbers_list.append(f"{num:02d}")
+                    total += p["amount"]
+                numbers = ", ".join(numbers_list) if numbers_list else "(none)"
+                dm_text = (
+                    f"You reserved number(s): {numbers}.\n\n"
+                    f"Total: {total} ETB\n\n"
+                    "Pay to:\n"
+                    "Telebirr: 09xxxxxxxx\n"
+                    "CBE: 100xxxxxxxx\n\n"
+                    "After paying, send a screenshot of the payment OR type the transaction ID here."
+                )
+                await bot.send_message(user.id, dm_text)
+            except Exception:
+                pass
         else:
             who = number_doc.get("display_name") or number_doc.get("username") or f"id:{owner_id}"
             await callback.answer(f"That number is pending (reserved by {who}).", show_alert=True)
