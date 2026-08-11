@@ -412,11 +412,44 @@ async def on_review(callback: CallbackQuery, bot: Bot):
     _, action, ids_raw = parts
     ids = [pid for pid in ids_raw.split(",") if pid]
 
+    status_labels = {
+        "awaiting_review": "Awaiting review",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled",
+    }
+
+    async def _edit_review_message(status_text: str):
+        try:
+            if callback.message.photo:
+                current_caption = callback.message.caption or ""
+                new_caption = f"{current_caption}\n\nStatus: {status_text}" if current_caption else f"Status: {status_text}"
+                await callback.message.edit_caption(caption=new_caption, reply_markup=None)
+            else:
+                current_text = callback.message.text or ""
+                new_text = f"{current_text}\n\nStatus: {status_text}" if current_text else f"Status: {status_text}"
+                await callback.message.edit_text(text=new_text, reply_markup=None)
+        except Exception:
+            try:
+                await callback.message.edit_reply_markup(reply_markup=None)
+            except Exception:
+                pass
+
+    async def _current_status_alert() -> str:
+        for pid in ids:
+            payment = await repo.get_payment(pid)
+            if payment:
+                st = payment.get("status", "unknown")
+                return f"Already {status_labels.get(st, st.title())} by another admin."
+        return "Already handled by another admin."
+
     handled = 0
     affected_rounds = set()
     for pid in ids:
         payment = await repo.get_payment(pid)
-        if not payment or payment.get("status") != "awaiting_review":
+        if not payment:
+            continue
+        if payment.get("status") != "awaiting_review":
             continue
 
         if action == "approve":
@@ -446,7 +479,7 @@ async def on_review(callback: CallbackQuery, bot: Bot):
     if handled:
         await callback.answer("Handled ✅")
     else:
-        await callback.answer("Nothing to do or already handled.", show_alert=True)
+        await callback.answer(await _current_status_alert(), show_alert=True)
 
     # Refresh boards for any affected rounds
     for rid in affected_rounds:
@@ -461,7 +494,5 @@ async def on_review(callback: CallbackQuery, bot: Bot):
         except Exception:
             pass
 
-    try:
-        await callback.message.edit_reply_markup(reply_markup=None)
-    except Exception:
-        pass
+    if handled:
+        await _edit_review_message("Approved" if action == "approve" else "Rejected")
