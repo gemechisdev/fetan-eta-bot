@@ -59,8 +59,15 @@ def run_polling():
     async def _run():
         await _check_db_or_exit()
         dp, bot = build_dispatcher()
+        # Start a lightweight aiohttp site alongside polling so PaaS health
+        # checks and wake pings reach the process and keep it warm.
+        app = build_web_app(dp=dp, bot=bot)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
+        await site.start()
         await bot.delete_webhook(drop_pending_updates=True)
-        logger.info("Starting in POLLING mode...")
+        logger.info("Starting in POLLING mode with embedded web server...")
         await dp.start_polling(bot)
 
     asyncio.run(_run())

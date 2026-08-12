@@ -144,6 +144,34 @@ periodically to prevent the service from sleeping on free tiers.
 gunicorn -k aiohttp.GunicornWebWorker -b 0.0.0.0:8080 app:app
 ```
 
+### G) Koyeb / other free web services (keep-alive tips)
+
+When running on a free web service that may sleep inactive containers (like
+Koyeb free web service), expose the `/.`, `/health`, `/ping`, and `/wake`
+endpoints so an external uptime monitor can both check and "wake" the bot.
+
+Important notes:
+
+- Ensure `RUN_MODE=webhook`, `PORT`, and `PUBLIC_URL` are set in your Koyeb
+  deployment env. `PUBLIC_URL` must be the public URL Koyeb assigns your
+  service (e.g. `https://my-service.koyeb.app`).
+- If your platform doesn't allow automatic webhook registration on startup,
+  use the `POST /register_webhook` endpoint to register it once (protected
+  by `WEBHOOK_SECRET`).
+
+Quick examples (replace placeholders):
+
+```bash
+# Wake the service (ping + ensure bot client session is active)
+curl -fsS https://your-app.koyeb.app/wake
+
+# Register webhook (call once after deploy). Use WEBHOOK_SECRET if set.
+curl -X POST "https://your-app.koyeb.app/register_webhook?secret=$WEBHOOK_SECRET"
+
+# Health check (works for Koyeb's health probes)
+curl -fsS https://your-app.koyeb.app/health
+```
+
 `app.py` exposes a ready-built aiohttp `Application` at import time
 specifically for this.
 
