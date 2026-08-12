@@ -82,6 +82,88 @@ async def get_round_by_number(chat_id, round_number):
     return await db.rounds.find_one({"chat_id": chat_id, "round_number": round_number})
 
 
+async def find_user_identity_snapshot(chat_id, telegram_id=None, username=None):
+    """Try to find the most recent stored identity details for a user inside a chat.
+
+    This searches rounds and payments so admins can resolve incomplete identities
+    when only a username or telegram_id is available.
+    """
+    db = get_db()
+
+    round_queries = []
+    if telegram_id is not None:
+        round_queries.extend([
+            {"chat_id": chat_id, "numbers.telegram_id": int(telegram_id)},
+            {"chat_id": chat_id, "draw.results.telegram_id": int(telegram_id)},
+        ])
+    if username:
+        round_queries.extend([
+            {"chat_id": chat_id, "numbers.username": username},
+            {"chat_id": chat_id, "draw.results.username": username},
+        ])
+
+    for query in round_queries:
+        round_doc = await db.rounds.find_one(query, sort=[("created_at", -1)])
+        if not round_doc:
+            continue
+
+        if telegram_id is not None:
+            for n in round_doc.get("numbers", []):
+                if n.get("telegram_id") == int(telegram_id):
+                    return {
+                        "telegram_id": n.get("telegram_id"),
+                        "username": n.get("username"),
+                        "display_name": n.get("display_name"),
+                    }
+            for r in round_doc.get("draw", {}).get("results", []):
+                if r.get("telegram_id") == int(telegram_id):
+                    return {
+                        "telegram_id": r.get("telegram_id"),
+                        "username": r.get("username"),
+                        "display_name": r.get("display_name"),
+                    }
+
+        if username:
+            for n in round_doc.get("numbers", []):
+                if n.get("username") == username:
+                    return {
+                        "telegram_id": n.get("telegram_id"),
+                        "username": n.get("username"),
+                        "display_name": n.get("display_name"),
+                    }
+            for r in round_doc.get("draw", {}).get("results", []):
+                if r.get("username") == username:
+                    return {
+                        "telegram_id": r.get("telegram_id"),
+                        "username": r.get("username"),
+                        "display_name": r.get("display_name"),
+                    }
+
+    if telegram_id is not None:
+        payment = await db.payments.find_one({"telegram_id": int(telegram_id)}, sort=[("created_at", -1)])
+        if payment:
+            return {
+                "telegram_id": payment.get("telegram_id"),
+                "username": payment.get("username"),
+                "display_name": payment.get("display_name"),
+            }
+
+    if username:
+        payment = await db.payments.find_one({"username": username}, sort=[("created_at", -1)])
+        if payment:
+            return {
+                "telegram_id": payment.get("telegram_id"),
+                "username": payment.get("username"),
+                "display_name": payment.get("display_name"),
+            }
+
+    return {
+        "telegram_id": telegram_id,
+        "username": username,
+        "display_name": None,
+    }
+
+
 async def list_rounds(chat_id):
     db = get_db()
     cursor = db.rounds.find({"chat_id": chat_id}).sort([("created_at", -1)])

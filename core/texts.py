@@ -43,24 +43,50 @@ def build_board_text(round_doc) -> str:
     total = cfg["total_numbers"]
     left = sum(1 for n in round_doc["numbers"] if n["status"] == "available")
     prizes = cfg["prizes"]
-    medals = ["🥇", "🥈", "🥉"]
-    prize_lines = "\n".join(f"{medals[i]} {p} ETB" for i, p in enumerate(prizes))
+    results = round_doc.get("draw", {}).get("results", [])
 
-    return (
-        f"🎲 <b>FETAN ETA #{round_doc['round_number']}</b>\n\n"
-        f"Ticket Price: {cfg['ticket_price']} ETB\n"
-        f"Numbers Left: {left}/{total}\n\n"
-        f"Prize Pool\n{prize_lines}\n\n"
-        f"Choose your lucky number below 👇"
-    )
+    def prize_icon(index: int) -> str:
+        return {0: "🥇", 1: "🥈", 2: "🥉"}.get(index, "🎖")
+
+    prize_lines = "\n".join(f"{prize_icon(i)} {p} ETB" for i, p in enumerate(prizes))
+
+    lines = [
+        f"🎲 <b>FETAN ETA #{round_doc['round_number']}</b>",
+        "",
+        f"Ticket Price: {cfg['ticket_price']} ETB",
+        f"Numbers Left: {left}/{total}",
+        "",
+        f"Prize Pool\n{prize_lines}",
+    ]
+
+    if results:
+        lines.extend([
+            "",
+            "<b>Drawn Winners</b>",
+        ])
+        for r in results:
+            lines.append(
+                f"{prize_icon(r['place'] - 1)} Place #{r['place']}: Number {r['number']:02d} — {format_user_identity(r.get('display_name'), r.get('username'), r.get('telegram_id'))} — {r['prize']} ETB"
+            )
+        if round_doc.get("draw", {}).get("seed_hash"):
+            lines.extend([
+                "",
+                f"Seed hash: {round_doc['draw']['seed_hash']}",
+            ])
+
+    lines.extend(["", "Choose your lucky number below 👇"])
+
+    return "\n".join(lines)
 
 
 def build_results_text(round_doc, results) -> str:
-    medals = ["🥇", "🥈", "🥉"]
+    def result_icon(place: int) -> str:
+        return {1: "🥇", 2: "🥈", 3: "🥉"}.get(place, "🎖")
+
     lines = [f"🎉 <b>Results for FETAN ETA #{round_doc['round_number']}</b>", ""]
     for r in results:
         who = r.get("display_name") or (f"@{r.get('username')}" if r.get("username") else f"id:{r.get('telegram_id')}")
-        lines.append(f"{medals[r['place'] - 1]} Place #{r['place']}: Number {r['number']:02d} — {who} — Prize: {r['prize']} ETB")
+        lines.append(f"{result_icon(r['place'])} Place #{r['place']}: Number {r['number']:02d} — {who} — Prize: {r['prize']} ETB")
     lines.append("")
     lines.append("Draw details:")
     lines.append(f"Seed hash: {round_doc.get('draw', {}).get('seed_hash')}")

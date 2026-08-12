@@ -2,11 +2,11 @@ from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
-from core.config import ADMIN_IDS
 from core.keyboards import build_number_grid, build_review_kb
 from core.texts import build_board_text, format_user_identity
 from db import repository as repo
 from services import draw_service, round_service
+from services.user_identity import resolve_user_identity
 
 router = Router(name="admin")
 
@@ -23,10 +23,14 @@ async def cmd_newround(message: Message):
     parts = message.text.split()
     try:
         price = int(parts[1])
-        prizes = [int(parts[2]), int(parts[3]), int(parts[4])]
-        total_numbers = int(parts[5]) if len(parts) > 5 else 20
+        total_numbers = int(parts[-1])
+        prizes = [int(x) for x in parts[2:-1]]
     except (IndexError, ValueError):
-        await message.answer("Usage: /newround price prize1 prize2 prize3 [total_numbers]")
+        await message.answer("Usage: /newround price prize1 prize2 ... prizeN participants_count")
+        return
+
+    if not prizes:
+        await message.answer("Usage: /newround price prize1 prize2 ... prizeN participants_count")
         return
 
     round_doc, error = await round_service.start_new_round(message.chat.id, price, prizes, total_numbers)
@@ -98,7 +102,7 @@ async def cmd_startdraw(message: Message, bot: Bot):
 
 
 @router.message(Command("pending"))
-async def cmd_pending(message: Message):
+async def cmd_pending(message: Message, bot: Bot):
     if not await is_admin(message.from_user.id):
         return
 
@@ -113,7 +117,14 @@ async def cmd_pending(message: Message):
         return
 
     for p in pending:
-        who = format_user_identity(p.get("display_name"), p.get("username"), p.get("telegram_id"))
+        resolved = await resolve_user_identity(
+            bot,
+            message.chat.id,
+            telegram_id=p.get("telegram_id"),
+            username=p.get("username"),
+            display_name=p.get("display_name"),
+        )
+        who = format_user_identity(resolved.get("display_name"), resolved.get("username"), resolved.get("telegram_id"))
         await message.answer(
             f"Number {p['number']:02d} — {who} — {p['amount']} ETB",
             reply_markup=build_review_kb(str(p["_id"])),
@@ -150,7 +161,7 @@ async def cmd_listrounds(message: Message):
 
 
 @router.message(Command("showround"))
-async def cmd_showround(message: Message):
+async def cmd_showround(message: Message, bot: Bot):
     if not await is_admin(message.from_user.id):
         return
 
@@ -169,7 +180,14 @@ async def cmd_showround(message: Message):
     # Build details
     nums = []
     for n in round_doc['numbers']:
-        owner = n.get('display_name') or n.get('username') or (f"id:{n.get('telegram_id')}" if n.get('telegram_id') else '-')
+        resolved = await resolve_user_identity(
+            bot,
+            message.chat.id,
+            telegram_id=n.get('telegram_id'),
+            username=n.get('username'),
+            display_name=n.get('display_name'),
+        )
+        owner = format_user_identity(resolved.get('display_name'), resolved.get('username'), resolved.get('telegram_id'))
         nums.append(f"{n['number']:02d}: {n['status']} — {owner}")
     await message.answer(
         f"Round #{round_doc['round_number']}\nStatus: {round_doc['status']}\n" + "\n".join(nums)
@@ -269,7 +287,21 @@ async def cmd_assignnumber(message: Message, bot: Bot):
         except ValueError:
             username = who
 
-    await repo.assign_number(round_doc['_id'], number, telegram_id=telegram_id, username=username, display_name=display_name)
+    resolved = await resolve_user_identity(
+        bot,
+        message.chat.id,
+        telegram_id=telegram_id,
+        username=username,
+        display_name=display_name,
+    )
+
+    await repo.assign_number(
+        round_doc['_id'],
+        number,
+        telegram_id=resolved.get("telegram_id"),
+        username=resolved.get("username"),
+        display_name=resolved.get("display_name"),
+    )
     # update board message display
     fresh = await repo.get_round(round_doc['_id'])
     board_id = fresh['message_refs'].get('board_message_id')
@@ -279,15 +311,19 @@ async def cmd_assignnumber(message: Message, bot: Bot):
             await bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=board_id, reply_markup=build_number_grid(fresh))
         except Exception:
             pass
+
     # Send DM to user if we have a telegram id
-    if telegram_id:
+    if resolved.get("telegram_id"):
         try:
-            display = display_name or (username if username else None)
-            user_str = format_user_identity(display, username, telegram_id)
-            await bot.send_message(telegram_id, f"You were assigned number {number:02d} in round #{rn} by an admin.\n\nAssigned to: {user_str}")
+            user_str = format_user_identity(resolved.get("display_name"), resolved.get("username"), resolved.get("telegram_id"))
+            await bot.send_message(
+                resolved.get("telegram_id"),
+                f"You were assigned number {number:02d} in round #{rn} by an admin.\n\nAssigned to: {user_str}"
+            )
         except Exception:
             pass
-    await message.answer(f"Assigned number {number:02d} in round #{rn} to {who}.")
+    assigned_to = format_user_identity(resolved.get("display_name"), resolved.get("username"), resolved.get("telegram_id"))
+    await message.answer(f"Assigned number {number:02d} in round #{rn} to {assigned_to}.")
 
 
 @router.message(Command("payout"))

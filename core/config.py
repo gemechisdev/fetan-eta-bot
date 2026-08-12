@@ -46,6 +46,10 @@ PORT = int(os.environ.get("PORT", 8080))
 # If a pending reservation is older than this it will be released
 RESERVATION_TTL_MINUTES = int(os.environ.get("RESERVATION_TTL_MINUTES", "20"))
 
+# Optional Telegram message effect id for final result announcements.
+# Defaults to Telegram's 🎉 animated effect when not set explicitly.
+RESULT_MESSAGE_EFFECT_ID = os.environ.get("RESULT_MESSAGE_EFFECT_ID", "5298766204649872471").strip()
+
 # RUN_MODE controls how main.py / app.py / bot.py behave:
 #   "polling"  -> long-lived polling loop, no public URL/port needed
 #   "webhook"  -> starts an HTTP server (aiohttp) with health/ping routes

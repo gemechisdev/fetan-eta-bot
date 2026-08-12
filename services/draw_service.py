@@ -3,9 +3,11 @@ import hashlib
 import random
 import secrets
 
+from core import config as core_config
+from core.keyboards import build_number_grid
+from core.texts import build_board_text, build_results_text, format_user_identity
 from db import repository as repo
 from aiogram.exceptions import TelegramBadRequest
-from core.texts import build_results_text, format_user_identity
 
 
 async def commit_and_draw(round_doc, bot, chat_id):
@@ -28,7 +30,7 @@ async def commit_and_draw(round_doc, bot, chat_id):
     seed_hash = hashlib.sha256(seed.encode()).hexdigest()
 
     rng = random.Random(seed)
-    winners = rng.sample(eligible, k=min(3, len(eligible)))
+    winners = rng.sample(eligible, k=min(len(prizes), len(eligible)))
 
     results = []
     for i, w in enumerate(winners):
@@ -53,6 +55,17 @@ async def commit_and_draw(round_doc, bot, chat_id):
         status="revealed",
         results=results,
     )
+
+    round_doc = await repo.get_round(round_doc["_id"])
+
+    # Update the pinned board message itself so the drawn state is visible in-place.
+    try:
+        board_id = round_doc.get("message_refs", {}).get("board_message_id") if round_doc else None
+        if round_doc and board_id:
+            await bot.edit_message_text(build_board_text(round_doc), chat_id=chat_id, message_id=board_id)
+            await bot.edit_message_reply_markup(chat_id=chat_id, message_id=board_id, reply_markup=build_number_grid(round_doc))
+    except Exception:
+        pass
 
     # 1) Publish the commitment BEFORE revealing anything, so anyone can
     #    later verify the result wasn't changed after the fact.
@@ -79,11 +92,13 @@ async def commit_and_draw(round_doc, bot, chat_id):
             pass
 
     # 3) Reveal results + the raw seed so the draw is auditable.
-    medals = ["🥇", "🥈", "🥉"]
+    def result_icon(place: int) -> str:
+        return {1: "🥇", 2: "🥈", 3: "🥉"}.get(place, "🎖")
+
     lines = ["🏆 <b>Results</b>", ""]
     for r in results:
         who = format_user_identity(r.get("display_name"), r.get("username"), r.get("telegram_id"))
-        lines.append(f"{medals[r['place'] - 1]} Number {r['number']:02d} — {who} — {r['prize']} ETB")
+        lines.append(f"{result_icon(r['place'])} Number {r['number']:02d} — {who} — {r['prize']} ETB")
     lines.append("")
     lines.append(f"Seed (verify it yourself): <code>{seed}</code>")
     try:
@@ -94,8 +109,14 @@ async def commit_and_draw(round_doc, bot, chat_id):
     await repo.set_round_status(round_doc["_id"], "awaiting_claims")
     # Send a separate detailed results message to the group
     try:
-        await bot.send_message(chat_id, build_results_text(round_doc, results))
+        send_kwargs = {}
+        if core_config.RESULT_MESSAGE_EFFECT_ID:
+            send_kwargs["message_effect_id"] = core_config.RESULT_MESSAGE_EFFECT_ID
+        await bot.send_message(chat_id, build_results_text(round_doc, results), **send_kwargs)
     except Exception:
-        pass
+        try:
+            await bot.send_message(chat_id, build_results_text(round_doc, results))
+        except Exception:
+            pass
 
     return results, None
