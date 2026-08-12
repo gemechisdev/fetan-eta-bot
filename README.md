@@ -44,10 +44,12 @@ group, make it an admin, and try the flow:
 
 1. `/newround 200 2000 500 300` — creates round #1, price 200 ETB, prizes
    2000/500/300, default 20 numbers.
-2. Tap a number in the group → your own private chat with the bot opens
-   automatically (works whether or not you've started the bot before) and
-   shows either the payment instructions (if it was free) or the current
-   status (if someone beat you to it).
+2. Tap a number in the group:
+   - **Available (⚪)** → your own private chat with the bot opens
+     automatically (works whether or not you'd started the bot before) and
+     shows payment instructions right there.
+   - **Pending (🟡) / Reserved (🟢)** → you just get a quick in-group alert
+     saying who has it — no DM opens, since there's nothing to do there.
 3. Reply in the private chat with any text (fake transaction ID) or a photo.
 4. As an admin, run `/pending` in the group — approve/reject buttons appear.
 5. Tap **Approve** — the group board updates to 🟢.
@@ -308,16 +310,16 @@ This project includes additional admin and UX improvements since the MVP:
 - Multiple selections: a single user may reserve multiple different numbers. The bot aggregates awaiting payments and DMs the user a single summary (numbers + total).
 - Reservation TTL: pending reservations auto-expire after `RESERVATION_TTL_MINUTES` (default 20). Set via env var in your `.env`. Expiry now also cancels the associated payment record (see fixes below).
 - Display names: the system stores and displays Telegram `display_name` when available for clearer admin messages.
-- **One-tap DM handoff, every time**: tapping *any* number button in the
-  group — available, pending, or already reserved — opens the tapper's own
-  private chat with the bot via a per-tap, per-user deep link
-  (`core/deeplink.py`, `answerCallbackQuery(url=...)` in
-  `core/routers/selection.py`). Available numbers get reserved and shown
-  payment instructions right there; taken numbers get a clear status message
-  instead. The link embeds the tapping user's id, so `/start` in
-  `core/routers/common.py` refuses to act on a link that isn't theirs.
-  Deselecting your *own* pending number still happens instantly in-group
-  (no DM round-trip needed just to cancel).
+- **One-tap DM handoff for available numbers only**: tapping a free (⚪)
+  number in the group opens the tapper's own private chat with the bot via a
+  per-tap, per-user deep link (`core/deeplink.py`,
+  `answerCallbackQuery(url=...)` in `core/routers/selection.py`) and shows
+  payment instructions right there. Tapping a pending (🟡) or already
+  reserved (🟢) number just shows a quick in-group alert with who has it —
+  no DM opens, since there's nothing actionable to show there. The deep link
+  embeds the tapping user's id, so `/start` in `core/routers/common.py`
+  refuses to act on a link that isn't theirs. Deselecting your *own* pending
+  number still happens instantly in-group.
 - **Message effect on win DMs**: the "🎉 You won ..." private message sent to each winner after `/startdraw` now carries the same festive Telegram message effect (`RESULT_MESSAGE_EFFECT_ID`) used on the group results message — effects only render in private chats, so this is where it actually shows.
 - **Redesigned results announcement**: the post-draw results message in the group is now a stylized box with round number, medal/number/prize lines (right-aligned), and the seed hash/seed for verification, prefixed with 🎊. See `core/texts.build_results_text`.
 - **`/revoke` / `/rv`**: the opposite of `/assignnumber` — force-releases a number back to available, cancels any open payment tied to it, updates the board, and DMs the previous holder that their reservation was revoked.

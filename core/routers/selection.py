@@ -21,20 +21,21 @@ def _deep_link_url(bot_username: str, chat_id: int, round_number: int, number: i
 
 @router.callback_query(F.data.startswith("num:"))
 async def on_number_tap(callback: CallbackQuery, bot: Bot):
-    """Every tap on a number button routes the tapper into their own private
-    chat with the bot (via the `url` field of answerCallbackQuery, which
-    Telegram treats as a t.me deep link — see core/deeplink.py). That's the
-    only way a bot can reliably reach a user who hasn't started it yet, and
-    it's inherently exclusive: Telegram opens *that tapper's own* client, so
+    """Every tap on an *available* number opens the tapper's own private chat
+    with the bot (via the `url` field of answerCallbackQuery, which Telegram
+    treats as a t.me deep link — see core/deeplink.py) so the reservation and
+    payment instructions land straight in their DM. That's the only way a
+    bot can reliably reach a user who hasn't started it yet, and it's
+    inherently exclusive: Telegram opens *that tapper's own* client, so
     there's no shared/public button anyone else could tap on their behalf.
 
     - Available number  -> open DM, /start reserves it there (see
       core/routers/common.py) and shows payment instructions.
     - Pending, owned by the tapper -> deselect instantly, in-group (no need
       to bounce through the DM just to cancel your own selection).
-    - Pending, owned by someone else / already reserved -> tell them the
-      status, then still open the DM so they land somewhere useful (welcome
-      screen / pick-another-number nudge) instead of a dead end.
+    - Pending, owned by someone else / already reserved -> just a quick
+      alert in-group with the status. No DM — the number can't be taken
+      anyway, so opening a chat for it would just waste a tap.
     """
     _, round_number_str, number_str = callback.data.split(":")
     number = int(number_str)
@@ -62,9 +63,9 @@ async def on_number_tap(callback: CallbackQuery, bot: Bot):
 
     status = number_doc.get("status")
     owner_id = number_doc.get("telegram_id")
-    me = await bot.get_me()
 
     if status == "available":
+        me = await bot.get_me()
         url = _deep_link_url(me.username, chat_id, fresh_round["round_number"], number, user.id)
         await callback.answer(f"Opening your DM to reserve number {number:02d}…", url=url)
 
@@ -84,22 +85,21 @@ async def on_number_tap(callback: CallbackQuery, bot: Bot):
             pass
 
     elif status == "pending":
+        # Already taken by someone else — just say so. No point opening a
+        # DM for a number that can't be reserved anyway; that's wasted taps.
         who = number_doc.get("display_name") or number_doc.get("username") or "another player"
-        url = _deep_link_url(me.username, chat_id, fresh_round["round_number"], number, user.id)
         await callback.answer(
             f"🟡 Number {number:02d} is pending — reserved by {who}. Pick another one.",
             show_alert=True,
-            url=url,
         )
 
     else:
-        # reserved (confirmed/green) or any other final state
+        # reserved (confirmed/green) or any other final state — same idea,
+        # just inform them in-group, no DM needed.
         who = number_doc.get("display_name") or number_doc.get("username") or "another player"
-        url = _deep_link_url(me.username, chat_id, fresh_round["round_number"], number, user.id)
         await callback.answer(
             f"🟢 Number {number:02d} is already reserved by {who}.",
             show_alert=True,
-            url=url,
         )
 
     # Refresh the board markup
