@@ -196,6 +196,11 @@ async def cmd_pending(message: Message, bot: Bot):
         await message.answer("No active round.")
         return
 
+    try:
+        await repo.expire_pending_reservations(round_doc["_id"], core_config.RESERVATION_TTL_MINUTES)
+    except Exception:
+        pass
+
     pending = await repo.get_pending_payments(round_doc["_id"])
     if not pending:
         await message.answer("No payments awaiting review.")
@@ -277,6 +282,12 @@ async def cmd_showround(message: Message, bot: Bot):
     if not round_doc:
         await message.answer("Round not found.")
         return
+
+    try:
+        await repo.expire_pending_reservations(round_doc["_id"], core_config.RESERVATION_TTL_MINUTES)
+    except Exception:
+        pass
+    round_doc = await repo.get_round_by_number(target_chat_id, rn)
 
     # Build details
     nums = []
@@ -476,6 +487,13 @@ async def cmd_revoke(message: Message, bot: Bot):
         await message.answer(f"Number {number:02d} not found in round #{rn}.")
         return
 
+    if not previous_holder.get("released_ok"):
+        await message.answer(
+            f"⚠️ Tried to revoke number {number:02d} in round #{rn}, but it still isn't "
+            f"showing as available. Please check /showround {rn}."
+        )
+        return
+
     # Reflect the release on the board.
     fresh = await repo.get_round(round_doc["_id"])
     board_id = fresh["message_refs"].get("board_message_id")
@@ -501,9 +519,12 @@ async def cmd_revoke(message: Message, bot: Bot):
         who = format_user_identity(
             previous_holder.get("display_name"), previous_holder.get("username"), previous_holder.get("telegram_id")
         )
+        status_label = "pending" if previous_holder.get("status") == "pending" else "reserved"
     else:
         who = "nobody (was already available)"
-    await message.answer(f"Revoked number {number:02d} in round #{rn} (was: {who}). It's available again.")
+        status_label = None
+    was_text = f"was: {who}, {status_label}" if status_label else f"was: {who}"
+    await message.answer(f"✅ Revoked number {number:02d} in round #{rn} ({was_text}). It's available again.")
 
 
 @router.message(Command("payout", "paid"))

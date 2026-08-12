@@ -28,23 +28,30 @@ def _decode_chat_id(token: str) -> int:
     return sign * int(token[1:])
 
 
-def build_reserve_payload(chat_id: int, round_number: int, number: int) -> str:
-    return f"r_{_encode_chat_id(chat_id)}_{round_number}_{number}"
+def build_reserve_payload(chat_id: int, round_number: int, number: int, user_id: int) -> str:
+    return f"r_{_encode_chat_id(chat_id)}_{round_number}_{number}_{user_id}"
 
 
 def parse_reserve_payload(payload: str | None) -> dict | None:
-    """Returns {"chat_id", "round_number", "number"} or None if it isn't a
-    (valid) reservation deep-link payload."""
+    """Returns {"chat_id", "round_number", "number", "user_id"} or None if it
+    isn't a (valid) reservation deep-link payload.
+
+    `user_id` is the person the link was generated for — every /start that
+    carries this payload must belong to that exact user (checked by the
+    caller), so a link meant for one player can't be used by someone else
+    who happens to see/tap it.
+    """
     if not payload:
         return None
     try:
-        prefix, chat_token, round_str, number_str = payload.split("_")
+        prefix, chat_token, round_str, number_str, user_str = payload.split("_")
         if prefix != "r":
             return None
         return {
             "chat_id": _decode_chat_id(chat_token),
             "round_number": int(round_str),
             "number": int(number_str),
+            "user_id": int(user_str),
         }
     except (ValueError, IndexError):
         return None

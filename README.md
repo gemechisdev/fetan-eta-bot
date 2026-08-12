@@ -44,10 +44,10 @@ group, make it an admin, and try the flow:
 
 1. `/newround 200 2000 500 300` — creates round #1, price 200 ETB, prizes
    2000/500/300, default 20 numbers.
-2. Tap a number → bot DMs you payment instructions. If you haven't started
-   a private chat with the bot yet, you'll get a **🚀 Start bot & reserve**
-   button in the group instead of an error — tap it once and you're both
-   started *and* reserved, no need to tap the number again.
+2. Tap a number in the group → your own private chat with the bot opens
+   automatically (works whether or not you've started the bot before) and
+   shows either the payment instructions (if it was free) or the current
+   status (if someone beat you to it).
 3. Reply in the private chat with any text (fake transaction ID) or a photo.
 4. As an admin, run `/pending` in the group — approve/reject buttons appear.
 5. Tap **Approve** — the group board updates to 🟢.
@@ -245,20 +245,20 @@ api/webhook.py            Vercel serverless entrypoint (unchanged, separate from
 core/config.py            env var loading + RUN_MODE detection (was `bot/` — renamed
 core/dispatcher.py         to free up bot.py as a top-level entrypoint name)
 core/webserver.py         aiohttp app: webhook handler + health/root/ping routes
-core/keyboards.py         inline keyboards (number grid, approve/reject, start-and-reserve deep link button)
+core/keyboards.py         inline keyboards (number grid, approve/reject)
 core/texts.py             all user-facing strings + board/results text builders
-core/deeplink.py          encode/decode payload for the "tap number -> start bot -> reserved" deep link
+core/deeplink.py          encode/decode payload for the per-tap, per-user reservation deep link
 core/routers/
-  common.py                 /start (incl. deep-link auto-reservation) /help
+  common.py                 /start (incl. deep-link reservation handoff) /help
   admin.py                  round management, verification, payouts, revoke
-  selection.py               number tap handling (group)
+  selection.py               number tap handling (group) — always opens the tapper's own DM
   private.py                 payment proof + payout claim (private chat, no FSM)
 
-db/client.py              Mongo connection singleton
+db/client.py              Mongo connection singleton (tz-aware, see note below)
 db/repository.py          every Mongo query lives here, nowhere else
 services/round_service.py     round/number/payment business logic + board refresh helper
-services/reservation_flow.py  shared "reserve number + DM payer" flow (used by both the
-                                group tap handler and the /start deep-link handler)
+services/reservation_flow.py  shared "reserve number + DM payer" flow, called from the
+                                private /start handler once a user lands in their own DM
 services/draw_service.py       provably-fair draw + animation
 ```
 
@@ -272,11 +272,14 @@ services/draw_service.py       provably-fair draw + animation
 - **Pending reservations auto-expire.** Pending numbers are released after
   `RESERVATION_TTL_MINUTES` (default 20) — configurable via your `.env`.
   Expiry also cancels the matching payment record so it can't resurface later.
-- **A bot still can't force-open a DM.** Telegram doesn't allow that for any
-  bot. What we do instead: if a user taps a number without having started
-  the bot, they get a one-tap **🚀 Start bot & reserve** deep-link button in
-  the group (see `core/deeplink.py`) that opens the DM and finishes the
-  reservation in the same tap — the closest thing to automatic Telegram allows.
+- **A bot still can't force-open a DM out of thin air.** Telegram doesn't
+  allow that for any bot. What we do instead: every tap on a group number
+  button routes through `answerCallbackQuery`'s `url` field pointing at a
+  `t.me/<bot>?start=...` deep link — Telegram treats this as "open this
+  user's own chat with the bot", so it opens (or starts) *their* private
+  chat with the number embedded, in the same tap. It's exclusive by
+  construction (the link opens in the tapper's own client) and additionally
+  carries their user id so `/start` refuses to act on it for anyone else.
 - **Draw animation runs synchronously** inside the request/loop (a few
   seconds of `asyncio.sleep`). Fine for a handful of frames; for longer or
   smoother animations, move it to a periodic job that advances one frame
@@ -305,13 +308,24 @@ This project includes additional admin and UX improvements since the MVP:
 - Multiple selections: a single user may reserve multiple different numbers. The bot aggregates awaiting payments and DMs the user a single summary (numbers + total).
 - Reservation TTL: pending reservations auto-expire after `RESERVATION_TTL_MINUTES` (default 20). Set via env var in your `.env`. Expiry now also cancels the associated payment record (see fixes below).
 - Display names: the system stores and displays Telegram `display_name` when available for clearer admin messages.
-- **One-tap start-and-reserve deep link**: if a user taps a number before ever starting the bot, the group gets a `🚀 Start bot & reserve NN` button (`core/deeplink.py`, `services/reservation_flow.py`) instead of a "please start a private chat" message. Tapping it opens the DM and completes the reservation immediately.
+- **One-tap DM handoff, every time**: tapping *any* number button in the
+  group — available, pending, or already reserved — opens the tapper's own
+  private chat with the bot via a per-tap, per-user deep link
+  (`core/deeplink.py`, `answerCallbackQuery(url=...)` in
+  `core/routers/selection.py`). Available numbers get reserved and shown
+  payment instructions right there; taken numbers get a clear status message
+  instead. The link embeds the tapping user's id, so `/start` in
+  `core/routers/common.py` refuses to act on a link that isn't theirs.
+  Deselecting your *own* pending number still happens instantly in-group
+  (no DM round-trip needed just to cancel).
 - **Message effect on win DMs**: the "🎉 You won ..." private message sent to each winner after `/startdraw` now carries the same festive Telegram message effect (`RESULT_MESSAGE_EFFECT_ID`) used on the group results message — effects only render in private chats, so this is where it actually shows.
 - **Redesigned results announcement**: the post-draw results message in the group is now a stylized box with round number, medal/number/prize lines (right-aligned), and the seed hash/seed for verification, prefixed with 🎊. See `core/texts.build_results_text`.
 - **`/revoke` / `/rv`**: the opposite of `/assignnumber` — force-releases a number back to available, cancels any open payment tied to it, updates the board, and DMs the previous holder that their reservation was revoked.
 
 Recent fixes & improvements
 
+- **Fixed pending reservations never actually expiring.** `db/client.py`'s Mongo client wasn't `tz_aware`, so dates written as timezone-aware (`utcnow()`) came back from MongoDB as naive datetimes on read. Comparing the two in `expire_pending_reservations()` raised `can't compare offset-naive and offset-aware datetimes`, which every caller silently swallowed — so pending numbers never actually returned to available after `RESERVATION_TTL_MINUTES`, no matter how long they sat there. Fixed by making the client `tz_aware=True` (UTC). Expiry is also now checked from more places (`/pending`, `/showround`, every number tap, every `/start`) so views stay fresh, and failures are logged instead of silently swallowed.
+- **`/revoke` now verifies and works uniformly on pending and reserved numbers.** It force-releases the number, cancels any lingering payment regardless of status (awaiting proof/review, or even already-approved), then re-reads the round to confirm the number actually ended up available before telling the admin it worked — if it didn't, you get a clear warning instead of a false "done".
 - **Fixed a payment-mixing bug**: submitting a transaction ID/screenshot could sometimes get bundled with a stale payment for a *different* number the user never actually selected in the current round (e.g. an old expired/cancelled reservation), causing it to be silently approved alongside the real one. Root cause and fix:
   - `expire_pending_reservations()` now also expires the matching payment record instead of leaving it stuck at `awaiting_proof` forever.
   - `/cancelround` and `/deleteround` now cancel all open payments for that round (`repo.cancel_round_payments`).

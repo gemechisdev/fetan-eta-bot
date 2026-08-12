@@ -26,17 +26,6 @@ def build_number_grid(round_doc) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def build_start_and_reserve_kb(bot_username: str, payload: str, number: int) -> InlineKeyboardMarkup:
-    """One-tap 'open my DMs and grab this number' button for users who
-    haven't started a private chat with the bot yet."""
-    builder = InlineKeyboardBuilder()
-    builder.button(
-        text=f"🚀 Start bot & reserve {number:02d}",
-        url=f"https://t.me/{bot_username}?start={payload}",
-    )
-    return builder.as_markup()
-
-
 def build_review_kb(payment_id: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Approve", callback_data=f"rev:approve:{payment_id}")

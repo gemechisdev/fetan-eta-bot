@@ -9,6 +9,10 @@ from db import repository as repo
 from services.reservation_flow import reserve_number_and_notify
 from services import round_service
 
+import logging
+
+logger = logging.getLogger("fetan-eta.common")
+
 router = Router(name="common")
 
 
@@ -19,9 +23,19 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot):
         await message.answer(WELCOME)
         return
 
-    # This /start came from a "🚀 Start bot & reserve NN" button in the
-    # group (see core/routers/selection.py + core/keyboards.py). Try to
-    # finish the reservation the user started with their tap, right now.
+    # This /start came from tapping a number in the group (see
+    # core/routers/selection.py + core/deeplink.py). The link is generated
+    # fresh per-tap and carries exactly who it's for — verify that before
+    # doing anything, so a link that ends up in someone else's hands (e.g.
+    # forwarded, or the same deep link is naively re-tapped by an alert
+    # dialog on someone else's device) can't reserve on their behalf.
+    if parsed["user_id"] != message.from_user.id:
+        await message.answer(
+            "🚫 This reservation link isn't yours — it was generated for another "
+            "player's tap.\n\nHead to the group and tap a free number yourself to grab one."
+        )
+        return
+
     await _start_and_reserve(message, bot, parsed)
 
 
@@ -41,7 +55,7 @@ async def _start_and_reserve(message: Message, bot: Bot, parsed: dict):
     try:
         await repo.expire_pending_reservations(round_doc["_id"], core_config.RESERVATION_TTL_MINUTES)
     except Exception:
-        pass
+        logger.exception("expire_pending_reservations failed for round_id=%s", round_doc["_id"])
     round_doc = await repo.get_active_round(chat_id)
 
     number_doc = next((n for n in round_doc["numbers"] if n["number"] == number), None)
@@ -49,30 +63,43 @@ async def _start_and_reserve(message: Message, bot: Bot, parsed: dict):
         await message.answer(WELCOME)
         return
 
-    if number_doc.get("status") != "available":
-        if number_doc.get("telegram_id") == message.from_user.id:
-            await message.answer(
-                "You've already reserved this number — check above for the payment details 👆"
-            )
+    status = number_doc.get("status")
+    owner_id = number_doc.get("telegram_id")
+
+    if status == "available":
+        result = await reserve_number_and_notify(bot, round_doc, number, message.from_user)
+        if result["status"] == "reserved":
+            await message.answer(f"👋 Welcome! Number {number:02d} is reserved for you — see payment details above ⬆️")
+            await round_service.refresh_board(bot, chat_id)
+        elif result["status"] == "taken":
+            await message.answer(result["message"])
         else:
+            # Extremely unlikely here (we're already inside the DM that would
+            # have failed), but handle it gracefully just in case.
             await message.answer(
-                f"Number {number:02d} was just taken by someone else. Head back to "
-                "the group and tap another available one."
+                "Something went wrong reserving that number. Please go back to the group and tap it again."
             )
         return
 
-    result = await reserve_number_and_notify(bot, round_doc, number, message.from_user)
+    if owner_id == message.from_user.id:
+        if status == "pending":
+            await message.answer(
+                f"You've already reserved number {number:02d} — check above for the payment details 👆"
+            )
+        else:
+            await message.answer(f"🎉 Number {number:02d} is confirmed as yours!")
+        return
 
-    if result["status"] == "reserved":
-        await message.answer(f"👋 Welcome! Number {number:02d} is reserved for you — see payment details above ⬆️")
-        await round_service.refresh_board(bot, chat_id)
-    elif result["status"] == "taken":
-        await message.answer(result["message"])
-    else:
-        # Extremely unlikely here (we're already inside the DM that would
-        # have failed), but handle it gracefully just in case.
+    who = number_doc.get("display_name") or number_doc.get("username") or "another player"
+    if status == "pending":
         await message.answer(
-            "Something went wrong reserving that number. Please go back to the group and tap it again."
+            f"🟡 Number {number:02d} is currently pending — {who} tapped it first and is "
+            "completing payment. Head back to the group and pick a different number 👇"
+        )
+    else:
+        await message.answer(
+            f"🟢 Number {number:02d} is already reserved by {who}. Head back to the "
+            "group and pick a different number 👇"
         )
 
 

@@ -546,13 +546,18 @@ async def ensure_admins_from_env():
 
 async def revoke_number(round_id, number):
     """Admin action: force-release a number back to 'available' — the exact
-    opposite of assign_number(). Also cancels any still-open payment tied to
-    it so it doesn't linger as awaiting_proof/awaiting_review and get swept
-    into some unrelated future payment for the same user.
+    opposite of assign_number(). Works the same regardless of whether the
+    number is currently 'pending' (awaiting payment/proof) or 'reserved'
+    (already confirmed) — both get fully released and verified below.
 
-    Returns a dict describing whoever previously held the number (all
-    fields None if it was already available), or None if the number doesn't
-    exist in this round.
+    Also cancels any payment tied to it (awaiting_proof / awaiting_review /
+    already-approved) so it doesn't linger in a state that a later,
+    unrelated payment lookup for the same user could still match.
+
+    Returns a dict describing whoever previously held the number, with
+    "released_ok" indicating whether the number verifiably ended up
+    'available' afterwards — or None if the number doesn't exist in this
+    round at all.
     """
     db = get_db()
     round_doc = await db.rounds.find_one({"_id": _oid(round_id)})
@@ -576,12 +581,22 @@ async def revoke_number(round_id, number):
                 "round_id": _oid(round_id),
                 "number": number,
                 "telegram_id": number_doc["telegram_id"],
-                "status": {"$in": ["awaiting_proof", "awaiting_review"]},
+                "status": {"$in": ["awaiting_proof", "awaiting_review", "approved"]},
             },
             {"$set": {"status": "cancelled", "cancelled_at": utcnow()}},
         )
 
     await release_number(round_id, number)
+
+    # Verify the release actually stuck before telling the admin it worked.
+    verify_doc = await db.rounds.find_one({"_id": _oid(round_id)})
+    verify_number = (
+        next((n for n in verify_doc.get("numbers", []) if n["number"] == number), None)
+        if verify_doc
+        else None
+    )
+    previous_holder["released_ok"] = bool(verify_number and verify_number.get("status") == "available")
+
     return previous_holder
 
 
