@@ -171,14 +171,31 @@ running process.
 
 ## 5. Admin commands (run inside the group)
 
-| Command                                            | Purpose                                                   |
-| -------------------------------------------------- | --------------------------------------------------------- |
-| `/newround <price> <p1> <p2> <p3> [total_numbers]` | Start a round (default 20 numbers)                        |
-| `/closeregistration`                               | Lock number selection, prepare for draw                   |
-| `/startdraw`                                       | Run the provably-fair draw + animation                    |
-| `/pending`                                         | List payments awaiting review with Approve/Reject buttons |
-| `/cancelround`                                     | Void the current round                                    |
-| `/payout <round_number> <telegram_id>`             | Mark a winner's prize as paid                             |
+| Command / alias              | Purpose                                                   |
+| ---------------------------- | --------------------------------------------------------- |
+| `/newround` / `/nr`          | Start a round with dynamic prizes                         |
+| `/closeregistration` / `/cr` | Lock number selection, prepare for draw                   |
+| `/startdraw` / `/sd`         | Run the provably-fair draw + animation                    |
+| `/pending` / `/pd`           | List payments awaiting review with Approve/Reject buttons |
+| `/cancelround` / `/cancel`   | Void the current round                                    |
+| `/listrounds` / `/rounds`    | List all rounds in the target chat                        |
+| `/showround` / `/round`      | Show round details and owners                             |
+| `/deleteround` / `/delround` | Delete a round and its stored board message               |
+| `/resendboard` / `/board`    | Repost the board and refresh the stored board message id  |
+| `/assignnumber` / `/assign`  | Force-assign a number to a user                           |
+| `/payout` / `/paid`          | Mark a winner's prize as paid                             |
+| `/addadmin` / `/aadmin`      | Add a DB-backed admin                                     |
+| `/deladmin` / `/dadmin`      | Remove a DB-backed admin                                  |
+| `/listadmins` / `/admins`    | List admins                                               |
+| `/chat` / `/msg`             | Send a text/media reply to a user                         |
+
+When you run a round command from private chat, append the target `chat_id` at the end, for example:
+
+```bash
+/payout 1 7708711658 -1001234567890
+/showround 1 -1001234567890
+/assignnumber 1 34 7708711658 -1001234567890
+```
 
 ## 6. Project layout
 

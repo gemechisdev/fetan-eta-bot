@@ -20,6 +20,14 @@ async def on_private_message(message: Message, bot: Bot):
         await message.answer(CLAIM_RECEIVED)
         display_name = f"{user.first_name or ''} {user.last_name or ''}".strip() or None
         user_str = format_user_identity(display_name, user.username, user.id)
+        winner = next((r for r in claim_round.get("draw", {}).get("results", []) if r.get("telegram_id") == user.id), None)
+        prize_text = ""
+        if winner:
+            prize_text = (
+                f"\nPrize: {winner.get('prize', 0)} ETB"
+                f"\nPlace: #{winner.get('place')}"
+                f"\nWinning number: {winner.get('number'):02d}"
+            )
         for admin_id in ADMIN_IDS:
             try:
                 await bot.send_message(
@@ -27,7 +35,8 @@ async def on_private_message(message: Message, bot: Bot):
                     "💰 Payout details submitted\n"
                     f"Round #{claim_round['round_number']}\n"
                     f"User: {user_str}\n"
-                    f"Account: {message.text.strip()}\n\n"
+                    f"Account: {message.text.strip()}"
+                    f"{prize_text}\n\n"
                     f"Mark as paid with:\n/payout {claim_round['round_number']} {user.id}",
                 )
             except Exception:
