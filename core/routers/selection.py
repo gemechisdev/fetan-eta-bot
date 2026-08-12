@@ -1,11 +1,13 @@
 from aiogram import Bot, F, Router
 from aiogram.types import CallbackQuery
 
-from core.keyboards import build_number_grid
+from core.deeplink import build_reserve_payload
+from core.keyboards import build_number_grid, build_start_and_reserve_kb
 from core.texts import PAYMENT_INSTRUCTIONS
 from core import config as core_config
 from db import repository as repo
 from services import round_service
+from services.reservation_flow import reserve_number_and_notify
 
 router = Router(name="selection")
 
@@ -45,44 +47,33 @@ async def on_number_tap(callback: CallbackQuery, bot: Bot):
     owner_id = number_doc.get("telegram_id")
 
     if status == "available":
-        payment, error = await round_service.select_number(fresh_round, number, user.id, user.username, display_name=display_name)
-        if error:
-            await callback.answer(error, show_alert=True)
-        else:
+        result = await reserve_number_and_notify(bot, fresh_round, number, user)
+
+        if result["status"] == "taken":
+            await callback.answer(result["message"], show_alert=True)
+
+        elif result["status"] == "dm_failed":
+            # User hasn't started a private chat with the bot yet. Instead of
+            # the old "search @bot, press Start, then tap the number again"
+            # dance, give them a single button that opens the DM AND
+            # reserves this exact number via a deep link (core/deeplink.py +
+            # core/routers/common.py). No need to come back and tap again.
+            await callback.answer(
+                "Tap 'Start bot' below to open our DM and grab this number 👇",
+                show_alert=True,
+            )
+            me = await bot.get_me()
+            payload = build_reserve_payload(chat_id, fresh_round["round_number"], number)
+            user_ref = f"@{user.username}" if user.username else (user.first_name or "there")
+            await bot.send_message(
+                chat_id,
+                f"👋 {user_ref}, one tap and number {number:02d} is yours — "
+                "this opens a private chat with me and reserves it instantly:",
+                reply_markup=build_start_and_reserve_kb(me.username, payload, number),
+            )
+
+        else:  # "reserved"
             await callback.answer(f"Number {number} reserved! Check your DM to pay.")
-            try:
-                pending_payments = await repo.get_awaiting_proof_payments_for_round_user(fresh_round["_id"], user.id)
-                seen = set()
-                numbers_list = []
-                total = 0
-                for p in pending_payments:
-                    num = p["number"]
-                    if num not in seen:
-                        seen.add(num)
-                        numbers_list.append(f"{num:02d}")
-                    total += p["amount"]
-                numbers = ", ".join(numbers_list)
-                dm_text = (
-                    f"You reserved number(s): {numbers}.\n\n"
-                    f"Total: {total} ETB\n\n"
-                    "Pay to:\n"
-                    "Telebirr: 09xxxxxxxx\n"
-                    "CBE: 100xxxxxxxx\n\n"
-                    "After paying, send a screenshot of the payment OR type the transaction ID here."
-                )
-                await bot.send_message(user.id, dm_text)
-            except Exception:
-                # DM failed: cancel selection and inform in group
-                await round_service.cancel_selection(fresh_round, number)
-                user_ref = f"@{user.username}" if user.username else f"id:{user.id}"
-                await bot.send_message(
-                    chat_id,
-                    f"{user.first_name or user_ref} ({user_ref}), please start a private chat with the bot first "
-                    f"(search @{(await bot.get_me()).username} and press Start), then tap the number again.",
-                )
-            else:
-                # After successful reservation DM, nothing more to do here
-                pass
 
     elif status == "pending":
         if owner_id == user.id:
@@ -96,25 +87,7 @@ async def on_number_tap(callback: CallbackQuery, bot: Bot):
             await callback.answer(f"Selection {number} cancelled.")
             # Send updated DM summarizing current awaiting payments for this user
             try:
-                pending_payments = await repo.get_awaiting_proof_payments_for_round_user(fresh_round["_id"], user.id)
-                seen = set()
-                numbers_list = []
-                total = 0
-                for p in pending_payments:
-                    num = p["number"]
-                    if num not in seen:
-                        seen.add(num)
-                        numbers_list.append(f"{num:02d}")
-                    total += p["amount"]
-                numbers = ", ".join(numbers_list) if numbers_list else "(none)"
-                dm_text = (
-                    f"You reserved number(s): {numbers}.\n\n"
-                    f"Total: {total} ETB\n\n"
-                    "Pay to:\n"
-                    "Telebirr: 09xxxxxxxx\n"
-                    "CBE: 100xxxxxxxx\n\n"
-                    "After paying, send a screenshot of the payment OR type the transaction ID here."
-                )
+                dm_text = await round_service.build_reservation_summary_text(fresh_round["_id"], user.id)
                 await bot.send_message(user.id, dm_text)
             except Exception:
                 pass

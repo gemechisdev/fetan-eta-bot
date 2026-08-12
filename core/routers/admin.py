@@ -2,6 +2,7 @@ from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
 
+from core import config as core_config
 from core.keyboards import build_number_grid, build_review_kb
 from core.texts import build_board_text, format_user_identity
 from db import repository as repo
@@ -161,14 +162,24 @@ async def cmd_startdraw(message: Message, bot: Bot):
             pass
 
     for r in results:
+        win_text = (
+            f"🎉 You won {r['prize']} ETB (place #{r['place']}, number {r['number']:02d})!\n"
+            f"Reply here with your payout account (Telebirr/CBE/bank) to claim it."
+        )
         try:
-            await bot.send_message(
-                r["telegram_id"],
-                f"🎉 You won {r['prize']} ETB (place #{r['place']}, number {r['number']:02d})!\n"
-                f"Reply here with your payout account (Telebirr/CBE/bank) to claim it.",
-            )
+            # Message effects (the fun full-screen animations) only work in
+            # private chats, which is exactly where this DM is sent — so
+            # give the win announcement the same festive effect used for
+            # the group results message.
+            send_kwargs = {}
+            if core_config.RESULT_MESSAGE_EFFECT_ID:
+                send_kwargs["message_effect_id"] = core_config.RESULT_MESSAGE_EFFECT_ID
+            await bot.send_message(r["telegram_id"], win_text, **send_kwargs)
         except Exception:
-            pass
+            try:
+                await bot.send_message(r["telegram_id"], win_text)
+            except Exception:
+                pass
 
 
 @router.message(Command("pending", "pd"))
@@ -220,6 +231,9 @@ async def cmd_cancel(message: Message):
         return
 
     await repo.set_round_status(round_doc["_id"], "cancelled")
+    # Also close out any open payments so they don't linger as
+    # "awaiting_proof" and get swept into an unrelated future round.
+    await repo.cancel_round_payments(round_doc["_id"])
     await message.answer(f"Round #{round_doc['round_number']} cancelled.")
 
 
@@ -311,6 +325,10 @@ async def cmd_deleteround(message: Message, bot: Bot):
         except Exception:
             pass
 
+    # Close out any open payments before deleting the round doc, otherwise
+    # they'd be left pointing at a round_id that no longer exists and could
+    # still get swept into a later, unrelated payment for the same user.
+    await repo.cancel_round_payments(round_doc['_id'])
     await repo.delete_round(round_doc['_id'])
     await message.answer(f"Deleted round #{rn}.")
 
@@ -426,6 +444,66 @@ async def cmd_assignnumber(message: Message, bot: Bot):
             pass
     assigned_to = format_user_identity(resolved.get("display_name"), resolved.get("username"), resolved.get("telegram_id"))
     await message.answer(f"Assigned number {number:02d} in round #{rn} to {assigned_to} in chat {target_chat_id}.")
+
+
+@router.message(Command("revoke", "rv"))
+async def cmd_revoke(message: Message, bot: Bot):
+    """Opposite of /assignnumber: force-releases a number back to available,
+    notifying whoever previously held it."""
+    if not await is_admin(message.from_user.id):
+        return
+
+    parts = message.text.split()
+    try:
+        rn = int(parts[1])
+        number = int(parts[2])
+        target_chat_id, _ = _resolve_round_chat_id(parts, message.chat.id, min_tokens_without_chat=3)
+    except (IndexError, ValueError):
+        await message.answer("Usage: /revoke round_number number [chat_id]")
+        return
+
+    if _private_chat_id_required(message, target_chat_id):
+        await message.answer("Usage: /revoke round_number number [chat_id]")
+        return
+
+    round_doc = await repo.get_round_by_number(target_chat_id, rn)
+    if not round_doc:
+        await message.answer("Round not found.")
+        return
+
+    previous_holder = await repo.revoke_number(round_doc["_id"], number)
+    if previous_holder is None:
+        await message.answer(f"Number {number:02d} not found in round #{rn}.")
+        return
+
+    # Reflect the release on the board.
+    fresh = await repo.get_round(round_doc["_id"])
+    board_id = fresh["message_refs"].get("board_message_id")
+    if board_id:
+        try:
+            await bot.edit_message_text(build_board_text(fresh), chat_id=target_chat_id, message_id=board_id)
+            await bot.edit_message_reply_markup(chat_id=target_chat_id, message_id=board_id, reply_markup=build_number_grid(fresh))
+        except Exception:
+            pass
+
+    # Let the previous holder know, if we have a telegram id for them.
+    if previous_holder.get("telegram_id"):
+        try:
+            await bot.send_message(
+                previous_holder["telegram_id"],
+                f"⚠️ Your reservation for number {number:02d} in round #{rn} was revoked by an admin. "
+                "It's available again — feel free to pick another number in the group.",
+            )
+        except Exception:
+            pass
+
+    if previous_holder.get("telegram_id"):
+        who = format_user_identity(
+            previous_holder.get("display_name"), previous_holder.get("username"), previous_holder.get("telegram_id")
+        )
+    else:
+        who = "nobody (was already available)"
+    await message.answer(f"Revoked number {number:02d} in round #{rn} (was: {who}). It's available again.")
 
 
 @router.message(Command("payout", "paid"))

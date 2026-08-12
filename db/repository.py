@@ -396,10 +396,37 @@ async def get_awaiting_proof_payment_for_user(telegram_id):
 
 
 async def get_awaiting_proof_payments_for_user(telegram_id):
-    """Return all payments for this user that are awaiting proof (status awaiting_proof)."""
+    """Return payments for this user that are awaiting proof (status
+    awaiting_proof), restricted to rounds that are still active.
+
+    This is what a private-chat "here's my transaction ID" message gets
+    matched against, so it must NOT include payments left over from a round
+    that was later cancelled, deleted, or completed. Without this filter, an
+    old abandoned reservation (e.g. a number whose pending hold expired, or
+    a round an admin cancelled) can silently get swept into — and approved
+    alongside — a completely unrelated later payment for the same user, even
+    though the round board never actually shows that number as theirs.
+    """
     db = get_db()
-    cursor = db.payments.find({"telegram_id": telegram_id, "status": "awaiting_proof"}).sort([("created_at", -1)])
-    return [p async for p in cursor]
+    pipeline = [
+        {"$match": {"telegram_id": telegram_id, "status": "awaiting_proof"}},
+        {
+            "$lookup": {
+                "from": "rounds",
+                "localField": "round_id",
+                "foreignField": "_id",
+                "as": "round",
+            }
+        },
+        {"$unwind": "$round"},
+        {"$match": {"round.status": {"$in": ACTIVE_STATUSES}}},
+        {"$sort": {"created_at": -1}},
+    ]
+    results = []
+    async for doc in db.payments.aggregate(pipeline):
+        doc.pop("round", None)
+        results.append(doc)
+    return results
 
 
 async def get_awaiting_proof_payments_for_round_user(round_id, telegram_id):
@@ -409,10 +436,35 @@ async def get_awaiting_proof_payments_for_round_user(round_id, telegram_id):
 
 
 async def expire_pending_reservations(round_id, ttl_minutes):
-    """Releases any 'pending' numbers that were reserved more than ttl_minutes ago."""
+    """Releases any 'pending' numbers that were reserved more than ttl_minutes
+    ago, AND expires their associated payment record(s).
+
+    Previously this only touched the round's numbers array. The payment
+    document created by select_number() was left behind forever with
+    status="awaiting_proof", because nothing else ever transitions it away.
+    That orphaned record would then get matched by
+    get_awaiting_proof_payments_for_user() the next time the same user paid
+    for anything, anywhere, and get bundled into (and approved alongside) an
+    unrelated payment — this is what caused numbers to get silently added to
+    someone's payment review that they never actually selected.
+    """
     db = get_db()
     cutoff = utcnow() - timedelta(minutes=ttl_minutes)
-    # Update any numbers array elements matching pending and older than cutoff.
+
+    round_doc = await db.rounds.find_one({"_id": _oid(round_id)})
+    if not round_doc:
+        return
+
+    expired_numbers = [
+        n
+        for n in round_doc.get("numbers", [])
+        if n.get("status") == "pending"
+        and n.get("reserved_at")
+        and n["reserved_at"] < cutoff
+    ]
+    if not expired_numbers:
+        return
+
     await db.rounds.update_one(
         {"_id": _oid(round_id)},
         {
@@ -426,6 +478,29 @@ async def expire_pending_reservations(round_id, ttl_minutes):
             }
         },
         array_filters=[{"elem.status": "pending", "elem.reserved_at": {"$lt": cutoff}}],
+    )
+
+    for n in expired_numbers:
+        await db.payments.update_many(
+            {
+                "round_id": _oid(round_id),
+                "number": n["number"],
+                "telegram_id": n.get("telegram_id"),
+                "status": {"$in": ["awaiting_proof", "awaiting_review"]},
+            },
+            {"$set": {"status": "expired", "expired_at": utcnow()}},
+        )
+
+
+async def cancel_round_payments(round_id):
+    """Marks every still-open payment (awaiting_proof / awaiting_review) for
+    a round as cancelled. Call this whenever a round is cancelled or deleted
+    so no payment document is left dangling in a state that a later,
+    unrelated payment lookup for the same user could still match."""
+    db = get_db()
+    await db.payments.update_many(
+        {"round_id": _oid(round_id), "status": {"$in": ["awaiting_proof", "awaiting_review"]}},
+        {"$set": {"status": "cancelled", "cancelled_at": utcnow()}},
     )
 
 
@@ -467,6 +542,47 @@ async def ensure_admins_from_env():
     db = get_db()
     for aid in core_config.ADMIN_IDS:
         await db.admins.update_one({"telegram_id": int(aid)}, {"$setOnInsert": {"telegram_id": int(aid), "added_at": utcnow()}}, upsert=True)
+
+
+async def revoke_number(round_id, number):
+    """Admin action: force-release a number back to 'available' — the exact
+    opposite of assign_number(). Also cancels any still-open payment tied to
+    it so it doesn't linger as awaiting_proof/awaiting_review and get swept
+    into some unrelated future payment for the same user.
+
+    Returns a dict describing whoever previously held the number (all
+    fields None if it was already available), or None if the number doesn't
+    exist in this round.
+    """
+    db = get_db()
+    round_doc = await db.rounds.find_one({"_id": _oid(round_id)})
+    if not round_doc:
+        return None
+
+    number_doc = next((n for n in round_doc.get("numbers", []) if n["number"] == number), None)
+    if not number_doc:
+        return None
+
+    previous_holder = {
+        "telegram_id": number_doc.get("telegram_id"),
+        "username": number_doc.get("username"),
+        "display_name": number_doc.get("display_name"),
+        "status": number_doc.get("status"),
+    }
+
+    if number_doc.get("telegram_id"):
+        await db.payments.update_many(
+            {
+                "round_id": _oid(round_id),
+                "number": number,
+                "telegram_id": number_doc["telegram_id"],
+                "status": {"$in": ["awaiting_proof", "awaiting_review"]},
+            },
+            {"$set": {"status": "cancelled", "cancelled_at": utcnow()}},
+        )
+
+    await release_number(round_id, number)
+    return previous_holder
 
 
 async def cancel_payment_for_user(round_id, number, telegram_id):

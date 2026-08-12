@@ -79,18 +79,41 @@ def build_board_text(round_doc) -> str:
     return "\n".join(lines)
 
 
+_BOLD_SANS_DIGIT_BASE = 0x1D7EC  # Mathematical Sans-Serif Bold Digit Zero
+
+
+def _bold_digits(n: int) -> str:
+    """Convert an integer to Mathematical Sans-Serif Bold digits (𝟬-𝟵), to
+    match the stylized 'ROUND #𝟭' heading used in the results announcement."""
+    return "".join(chr(_BOLD_SANS_DIGIT_BASE + int(d)) for d in str(n))
+
+
 def build_results_text(round_doc, results) -> str:
     def result_icon(place: int) -> str:
         return {1: "🥇", 2: "🥈", 3: "🥉"}.get(place, "🎖")
 
-    lines = [f"🎉 <b>Results for FETAN ETA #{round_doc['round_number']}</b>", ""]
-    for r in results:
-        who = r.get("display_name") or (f"@{r.get('username')}" if r.get("username") else f"id:{r.get('telegram_id')}")
-        lines.append(f"{result_icon(r['place'])} Place #{r['place']}: Number {r['number']:02d} — {who} — Prize: {r['prize']} ETB")
-    lines.append("")
-    lines.append("Draw details:")
-    lines.append(f"Seed hash: {round_doc.get('draw', {}).get('seed_hash')}")
-    lines.append(f"Seed: {round_doc.get('draw', {}).get('seed')}")
+    prize_strs = [f"{r['prize']:,}" for r in results]
+    width = max((len(p) for p in prize_strs), default=0)
+
+    result_lines = []
+    for r, prize_str in zip(results, prize_strs):
+        pad = " " * (width - len(prize_str))
+        result_lines.append(
+            f"┣ {result_icon(r['place'])} #{r['number']:02d} ➜ {pad}{prize_str} ETB"
+        )
+
+    draw = round_doc.get("draw", {})
+    lines = [
+        "🎊",
+        "╔═══━━━━━∙•∙◦❉◦∙•∙━━━━━═══╗",
+        f"┣   🎉 𝗙𝗘𝗧𝗔𝗡 𝗘𝗧𝗔 — 𝗥𝗢𝗨𝗡𝗗 #{_bold_digits(round_doc['round_number'])}",
+        "┣━━━━━━━━━━━━━━━━━━━━━",
+        *result_lines,
+        "┣━━━━━━━━━━━━━━━━━━━━━",
+        f"┣ 🔐 Hash ➜ <code>{draw.get('seed_hash')}</code>",
+        f"┣ 🔑 Seed ➜ <code>{draw.get('seed')}</code>",
+        "╚═══━━━━━∙•∙◦❉◦∙•∙━━━━━═══╝",
+    ]
     return "\n".join(lines)
 
 

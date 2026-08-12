@@ -44,8 +44,10 @@ group, make it an admin, and try the flow:
 
 1. `/newround 200 2000 500 300` — creates round #1, price 200 ETB, prizes
    2000/500/300, default 20 numbers.
-2. Tap a number → bot DMs you payment instructions (press **Start** on the
-   bot in a private chat first if you haven't).
+2. Tap a number → bot DMs you payment instructions. If you haven't started
+   a private chat with the bot yet, you'll get a **🚀 Start bot & reserve**
+   button in the group instead of an error — tap it once and you're both
+   started *and* reserved, no need to tap the number again.
 3. Reply in the private chat with any text (fake transaction ID) or a photo.
 4. As an admin, run `/pending` in the group — approve/reject buttons appear.
 5. Tap **Approve** — the group board updates to 🟢.
@@ -205,12 +207,13 @@ running process.
 | `/closeregistration` / `/cr` | Lock number selection, prepare for draw                   |
 | `/startdraw` / `/sd`         | Run the provably-fair draw + animation                    |
 | `/pending` / `/pd`           | List payments awaiting review with Approve/Reject buttons |
-| `/cancelround` / `/cancel`   | Void the current round                                    |
+| `/cancelround` / `/cancel`   | Void the current round (also cancels its open payments)   |
 | `/listrounds` / `/rounds`    | List all rounds in the target chat                        |
 | `/showround` / `/round`      | Show round details and owners                             |
-| `/deleteround` / `/delround` | Delete a round and its stored board message               |
+| `/deleteround` / `/delround` | Delete a round and its stored board message                |
 | `/resendboard` / `/board`    | Repost the board and refresh the stored board message id  |
 | `/assignnumber` / `/assign`  | Force-assign a number to a user                           |
+| `/revoke` / `/rv`            | Opposite of `/assignnumber` — force-release a number back to available |
 | `/payout` / `/paid`          | Mark a winner's prize as paid                             |
 | `/addadmin` / `/aadmin`      | Add a DB-backed admin                                     |
 | `/deladmin` / `/dadmin`      | Remove a DB-backed admin                                  |
@@ -223,6 +226,7 @@ When you run a round command from private chat, append the target `chat_id` at t
 /payout 1 7708711658 -1001234567890
 /showround 1 -1001234567890
 /assignnumber 1 34 7708711658 -1001234567890
+/revoke 1 34 -1001234567890
 ```
 
 ## 6. Project layout
@@ -241,18 +245,21 @@ api/webhook.py            Vercel serverless entrypoint (unchanged, separate from
 core/config.py            env var loading + RUN_MODE detection (was `bot/` — renamed
 core/dispatcher.py         to free up bot.py as a top-level entrypoint name)
 core/webserver.py         aiohttp app: webhook handler + health/root/ping routes
-core/keyboards.py         inline keyboards (number grid, approve/reject)
-core/texts.py             all user-facing strings + board text builder
+core/keyboards.py         inline keyboards (number grid, approve/reject, start-and-reserve deep link button)
+core/texts.py             all user-facing strings + board/results text builders
+core/deeplink.py          encode/decode payload for the "tap number -> start bot -> reserved" deep link
 core/routers/
-  common.py                /start /help
-  admin.py                  round management, verification, payouts
+  common.py                 /start (incl. deep-link auto-reservation) /help
+  admin.py                  round management, verification, payouts, revoke
   selection.py               number tap handling (group)
   private.py                 payment proof + payout claim (private chat, no FSM)
 
 db/client.py              Mongo connection singleton
 db/repository.py          every Mongo query lives here, nowhere else
-services/round_service.py   round/number/payment business logic
-services/draw_service.py    provably-fair draw + animation
+services/round_service.py     round/number/payment business logic + board refresh helper
+services/reservation_flow.py  shared "reserve number + DM payer" flow (used by both the
+                                group tap handler and the /start deep-link handler)
+services/draw_service.py       provably-fair draw + animation
 ```
 
 > Note: the internal package was renamed from `bot/` to `core/`. A
@@ -264,6 +271,12 @@ services/draw_service.py    provably-fair draw + animation
 
 - **Pending reservations auto-expire.** Pending numbers are released after
   `RESERVATION_TTL_MINUTES` (default 20) — configurable via your `.env`.
+  Expiry also cancels the matching payment record so it can't resurface later.
+- **A bot still can't force-open a DM.** Telegram doesn't allow that for any
+  bot. What we do instead: if a user taps a number without having started
+  the bot, they get a one-tap **🚀 Start bot & reserve** deep-link button in
+  the group (see `core/deeplink.py`) that opens the DM and finishes the
+  reservation in the same tap — the closest thing to automatic Telegram allows.
 - **Draw animation runs synchronously** inside the request/loop (a few
   seconds of `asyncio.sleep`). Fine for a handful of frames; for longer or
   smoother animations, move it to a periodic job that advances one frame
@@ -273,7 +286,8 @@ services/draw_service.py    provably-fair draw + animation
 - **No `users` collection yet** — user info is stored inline on
   payments/rounds. Fine for MVP; worth normalizing once you add
   stats/history features.
-- **Payment methods are hardcoded text** in `core/texts.py` — swap in your
+- **Payment methods are hardcoded text** in `core/texts.py` and
+  `services/round_service.py` (`PAY_INSTRUCTIONS_FOOTER`) — swap in your
   real Telebirr/CBE numbers there.
 
 ## 8. Next steps (future, not in this MVP)
@@ -289,18 +303,26 @@ This project includes additional admin and UX improvements since the MVP:
 
 - Selection toggle: tapping a number in the group toggles selection for the tapping user. Tap once to reserve (pending, yellow), tap again to cancel (deselect).
 - Multiple selections: a single user may reserve multiple different numbers. The bot aggregates awaiting payments and DMs the user a single summary (numbers + total).
-- Reservation TTL: pending reservations auto-expire after `RESERVATION_TTL_MINUTES` (default 20). Set via env var in your `.env`.
+- Reservation TTL: pending reservations auto-expire after `RESERVATION_TTL_MINUTES` (default 20). Set via env var in your `.env`. Expiry now also cancels the associated payment record (see fixes below).
 - Display names: the system stores and displays Telegram `display_name` when available for clearer admin messages.
+- **One-tap start-and-reserve deep link**: if a user taps a number before ever starting the bot, the group gets a `🚀 Start bot & reserve NN` button (`core/deeplink.py`, `services/reservation_flow.py`) instead of a "please start a private chat" message. Tapping it opens the DM and completes the reservation immediately.
+- **Message effect on win DMs**: the "🎉 You won ..." private message sent to each winner after `/startdraw` now carries the same festive Telegram message effect (`RESULT_MESSAGE_EFFECT_ID`) used on the group results message — effects only render in private chats, so this is where it actually shows.
+- **Redesigned results announcement**: the post-draw results message in the group is now a stylized box with round number, medal/number/prize lines (right-aligned), and the seed hash/seed for verification, prefixed with 🎊. See `core/texts.build_results_text`.
+- **`/revoke` / `/rv`**: the opposite of `/assignnumber` — force-releases a number back to available, cancels any open payment tied to it, updates the board, and DMs the previous holder that their reservation was revoked.
 
 Recent fixes & improvements
 
+- **Fixed a payment-mixing bug**: submitting a transaction ID/screenshot could sometimes get bundled with a stale payment for a *different* number the user never actually selected in the current round (e.g. an old expired/cancelled reservation), causing it to be silently approved alongside the real one. Root cause and fix:
+  - `expire_pending_reservations()` now also expires the matching payment record instead of leaving it stuck at `awaiting_proof` forever.
+  - `/cancelround` and `/deleteround` now cancel all open payments for that round (`repo.cancel_round_payments`).
+  - `get_awaiting_proof_payments_for_user()` (used when matching a submitted proof to the payer's pending payments) is now scoped to rounds that are still active, so a payment from a cancelled/deleted/completed round can no longer resurface in a later, unrelated submission.
 - Fixed incorrect board highlighting: updates to number state use MongoDB `arrayFilters` to target the exact `number` element (prevents earlier cases where reservations showed up on the first N buttons instead of the intended numbers).
 - Stable keyboard ordering: the number grid is now built from a numerically-sorted `numbers` list, protecting against DB array reorders.
 - Batch payment proofs: users with multiple pending numbers can submit one proof (photo/text) and the bot attaches it to all pending payments; admins receive a consolidated review message and can Approve All / Reject All.
 - Admin `/chat` command: `/chat <telegram_id> <text>` sends text to a user; replying to a message and running `/chat <telegram_id>` will forward/copy that replied message (supports media).
 - Admin notifications: the bot fetches admins from the DB plus env-configured IDs to ensure all admins are notified.
 - Board update target: board edits prefer the stored board message id (so the canonical board is updated for everyone), rather than editing the callback-originating message.
-- Debug helpers: lightweight debug prints (`[DB DEBUG]` / `[DEBUG]`) were added to help troubleshoot number state updates and callback handling during development.
+- Debug helpers: lightweight debug prints (`[DB DEBUG]` / `[DEBUG]`) remain in `db/repository.py` and `core/routers/selection.py` to help troubleshoot number state during development — safe to strip once you're past testing.
 
 Admin management (DB-backed):
 
@@ -312,13 +334,14 @@ Round management commands:
 
 - `/listrounds` — list all rounds in the chat (number, status, created_at)
 - `/showround <round_number>` — print detailed list of numbers, their status and owner
-- `/deleteround <round_number>` — delete a round and remove its board message
+- `/deleteround <round_number>` — delete a round, cancel its open payments, and remove its board message
 - `/resendboard <round_number>` — repost the board and update stored board message id (no extra confirmation message)
 - `/assignnumber <round_number> <number> <telegram_id|@username> [display_name]` — admin force-assigns a number; updates the board to show it reserved
+- `/revoke <round_number> <number>` — admin force-releases a number back to available; updates the board and notifies the previous holder
 
 Other behaviour changes:
 
-- After a draw, the bot posts a separate detailed results message (winners, prizes, seed/hash).
-- All actions that change number state attempt to update the board message in the group immediately (selection, deselection, approval, rejection, manual assignment, resend, delete).
+- After a draw, the bot posts a separate, stylized results message (winners, prizes, seed/hash) with the message effect applied, then DMs each winner individually (also with the effect).
+- All actions that change number state attempt to update the board message in the group immediately (selection, deselection, approval, rejection, manual assignment, revoke, resend, delete).
 
 Refer to the `/help` and admin commands in the group for on-the-fly usage; check `core/routers/admin.py` for exact command formats.
