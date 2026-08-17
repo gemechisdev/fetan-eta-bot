@@ -1,4 +1,4 @@
-# Fetan Eta Bot — MVP
+# ፈጣን ዕጣ Bot — MVP
 
 Telegram lottery bot: group members reserve a number, pay, get verified by
 an admin, then three winners are drawn live with a provably-fair
@@ -184,7 +184,7 @@ specifically for this.
 ```ini
 # /etc/systemd/system/fetan-eta-bot.service
 [Unit]
-Description=Fetan Eta Telegram Bot
+Description=ፈጣን ዕጣ Telegram Bot
 After=network.target
 
 [Service]

@@ -24,7 +24,7 @@ async def commit_and_draw(round_doc, bot, chat_id):
     prizes = round_doc["config"]["prizes"]
 
     if not eligible:
-        return None, "No reserved numbers to draw from."
+        return None, "ለማውጣት ምንም የተያዙ ቁጥሮች የሉም።"
 
     seed = secrets.token_hex(16)
     seed_hash = hashlib.sha256(seed.encode()).hexdigest()
@@ -71,21 +71,21 @@ async def commit_and_draw(round_doc, bot, chat_id):
     #    later verify the result wasn't changed after the fact.
     await bot.send_message(
         chat_id,
-        "🔒 Draw seed commitment (SHA-256):\n"
+        "🔒 የእጣ ማውጣት የseed hash (SHA-256):\n"
         f"<code>{seed_hash}</code>\n\n"
-        "This will be verifiable once the seed is revealed below.",
+        "Seed ከዚህ በታች ከተገለጸ በኋላ ውጤቱን ማረጋገጥ ይቻላል።",
     )
 
     # 2) Cosmetic spinning animation. The real result is already decided
     #    and stored above — this is purely for visual transparency.
     all_numbers = [n["number"] for n in eligible]
-    msg = await bot.send_message(chat_id, "🎲 Drawing...")
+    msg = await bot.send_message(chat_id, "🎲 እጣ በማውጣት ላይ...")
     for _ in range(6):
         await asyncio.sleep(0.6)
         fake = rng.choice(all_numbers)
         try:
             await bot.edit_message_text(
-                f"🎲 Drawing... {fake:02d}", chat_id=chat_id, message_id=msg.message_id
+                f"🎲 እጣ በማውጣት ላይ... {fake:02d}", chat_id=chat_id, message_id=msg.message_id
             )
         except TelegramBadRequest:
             # Ignore "message is not modified" and similar transient edit errors
@@ -95,12 +95,12 @@ async def commit_and_draw(round_doc, bot, chat_id):
     def result_icon(place: int) -> str:
         return {1: "🥇", 2: "🥈", 3: "🥉"}.get(place, "🎖")
 
-    lines = ["🏆 <b>Results</b>", ""]
+    lines = ["🏆 <b>ውጤቶች</b>", ""]
     for r in results:
         who = format_user_identity(r.get("display_name"), r.get("username"), r.get("telegram_id"))
-        lines.append(f"{result_icon(r['place'])} Number {r['number']:02d} — {who} — {r['prize']} ETB")
+        lines.append(f"{result_icon(r['place'])} ቁጥር {r['number']:02d} — {who} — {r['prize']} ETB")
     lines.append("")
-    lines.append(f"Seed (verify it yourself): <code>{seed}</code>")
+    lines.append(f"Seed (እራስዎ ያረጋግጡ): <code>{seed}</code>")
     try:
         await bot.edit_message_text("\n".join(lines), chat_id=chat_id, message_id=msg.message_id)
     except TelegramBadRequest:

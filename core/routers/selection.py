@@ -53,12 +53,12 @@ async def on_number_tap(callback: CallbackQuery, bot: Bot):
 
     fresh_round = await repo.get_active_round(chat_id)
     if not fresh_round or fresh_round["round_number"] != int(round_number_str):
-        await callback.answer("This round has ended.", show_alert=True)
+        await callback.answer("ይህ ዙር አብቅቷል።", show_alert=True)
         return
 
     number_doc = next((n for n in fresh_round["numbers"] if n["number"] == number), None)
     if not number_doc:
-        await callback.answer("Invalid number.", show_alert=True)
+        await callback.answer("ልክ ያልሆነ ቁጥር።", show_alert=True)
         return
 
     status = number_doc.get("status")
@@ -67,7 +67,7 @@ async def on_number_tap(callback: CallbackQuery, bot: Bot):
     if status == "available":
         me = await bot.get_me()
         url = _deep_link_url(me.username, chat_id, fresh_round["round_number"], number, user.id)
-        await callback.answer(f"Opening your DM to reserve number {number:02d}…", url=url)
+        await callback.answer(f"ቁጥር {number:02d}ን ለመያዝ የግል መልዕክትዎን በመክፈት ላይ…", url=url)
 
     elif status == "pending" and owner_id == user.id:
         # Owner tapping their own pending number = deselect. Handled
@@ -77,7 +77,7 @@ async def on_number_tap(callback: CallbackQuery, bot: Bot):
             await repo.release_number(fresh_round["_id"], number)
         except Exception:
             pass
-        await callback.answer(f"Selection {number:02d} cancelled.")
+        await callback.answer(f"የቁጥር {number:02d} ምርጫ ተሰርዟል።")
         try:
             dm_text = await round_service.build_reservation_summary_text(fresh_round["_id"], user.id)
             await bot.send_message(user.id, dm_text)
@@ -87,18 +87,18 @@ async def on_number_tap(callback: CallbackQuery, bot: Bot):
     elif status == "pending":
         # Already taken by someone else — just say so. No point opening a
         # DM for a number that can't be reserved anyway; that's wasted taps.
-        who = number_doc.get("display_name") or number_doc.get("username") or "another player"
+        who = number_doc.get("display_name") or number_doc.get("username") or "ሌላ ተጫዋች"
         await callback.answer(
-            f"🟡 Number {number:02d} is pending — reserved by {who}. Pick another one.",
+            f"🟡 ቁጥር {number:02d} በመጠባበቅ ላይ ነው — በ{who} ተይዟል። ሌላ ቁጥር ይምረጡ።",
             show_alert=True,
         )
 
     else:
         # reserved (confirmed/green) or any other final state — same idea,
         # just inform them in-group, no DM needed.
-        who = number_doc.get("display_name") or number_doc.get("username") or "another player"
+        who = number_doc.get("display_name") or number_doc.get("username") or "ሌላ ተጫዋች"
         await callback.answer(
-            f"🟢 Number {number:02d} is already reserved by {who}.",
+            f"🟢 ቁጥር {number:02d} አስቀድሞ በ{who} ተይዟል።",
             show_alert=True,
         )
 
@@ -115,3 +115,4 @@ async def on_number_tap(callback: CallbackQuery, bot: Bot):
             )
         except Exception:
             pass
+        

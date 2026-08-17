@@ -3,10 +3,10 @@ from db import repository as repo
 DEFAULT_TOTAL_NUMBERS = 20
 
 PAY_INSTRUCTIONS_FOOTER = (
-    "Pay to:\n"
+    "ወደዚህ ይክፈሉ:\n"
     "Telebirr: 09xxxxxxxx\n"
     "CBE: 100xxxxxxxx\n\n"
-    "After paying, send a screenshot of the payment OR type the transaction ID here."
+    "ክፍያውን ከፈጸሙ በኋላ የክፍያውን ስክሪንሾት ይላኩ ወይም የግብይት መለያ ቁጥሩን (Transaction ID) እዚህ ይጻፉ።"
 )
 
 
@@ -25,10 +25,10 @@ async def build_reservation_summary_text(round_id, telegram_id) -> str:
             seen.add(num)
             numbers_list.append(f"{num:02d}")
         total += p["amount"]
-    numbers = ", ".join(numbers_list) if numbers_list else "(none)"
+    numbers = ", ".join(numbers_list) if numbers_list else "(ምንም)"
     return (
-        f"You reserved number(s): {numbers}.\n\n"
-        f"Total: {total} ETB\n\n"
+        f"የተያዙ ቁጥር(ሮች): {numbers}።\n\n"
+        f"ጠቅላላ: {total} ETB\n\n"
         f"{PAY_INSTRUCTIONS_FOOTER}"
     )
 
@@ -55,8 +55,8 @@ async def start_new_round(chat_id, ticket_price, prizes, total_numbers=DEFAULT_T
     existing = await repo.get_active_round(chat_id)
     if existing:
         return None, (
-            f"Round #{existing['round_number']} is still active "
-            f"(status: {existing['status']}). Finish or /cancelround it first."
+            f"ዙር #{existing['round_number']} አሁንም ንቁ ነው "
+            f"(ሁኔታ: {existing['status']})። መጀመሪያ ይጨርሱት ወይም /cancelround ያድርጉት።"
         )
     round_number = await repo.get_next_round_number(chat_id)
     round_doc = await repo.create_round(chat_id, round_number, ticket_price, total_numbers, prizes)
@@ -65,11 +65,11 @@ async def start_new_round(chat_id, ticket_price, prizes, total_numbers=DEFAULT_T
 
 async def select_number(round_doc, number, telegram_id, username, display_name=None):
     if round_doc["status"] != "registration_open":
-        return None, "Registration is closed for this round."
+        return None, "ለዚህ ዙር ምዝገባው ተዘግቷል።"
 
     valid_numbers = {n["number"] for n in round_doc["numbers"]}
     if number not in valid_numbers:
-        return None, "Invalid number."
+        return None, "ልክ ያልሆነ ቁጥር።"
 
     won_race = await repo.reserve_number_pending(round_doc["_id"], number, telegram_id, username, display_name)
     if not won_race:
@@ -83,8 +83,8 @@ async def select_number(round_doc, number, telegram_id, username, display_name=N
                     break
         if holder and holder.get("telegram_id"):
             who = holder.get("display_name") or holder.get("username") or f"id:{holder.get('telegram_id')}"
-            return None, f"That number is already reserved by {who}. Pick another one."
-        return None, "That number was just taken. Pick another one."
+            return None, f"ይህ ቁጥር አስቀድሞ በ{who} ተይዟል። ሌላ ቁጥር ይምረጡ።"
+        return None, "ይህ ቁጥር አሁን በሌላ ሰው ተይዟል። ሌላ ቁጥር ይምረጡ።"
 
     payment = await repo.create_payment(
         round_doc["_id"], number, telegram_id, username, round_doc["config"]["ticket_price"], display_name=display_name

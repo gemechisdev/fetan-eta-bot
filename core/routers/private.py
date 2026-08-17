@@ -24,20 +24,20 @@ async def on_private_message(message: Message, bot: Bot):
         prize_text = ""
         if winner:
             prize_text = (
-                f"\nPrize: {winner.get('prize', 0)} ETB"
-                f"\nPlace: #{winner.get('place')}"
-                f"\nWinning number: {winner.get('number'):02d}"
+                f"\nሽልማት፡ {winner.get('prize', 0)} ብር"
+                f"\nደረጃ፡ #{winner.get('place')}"
+                f"\nያሸነፈ ቁጥር፡ {winner.get('number'):02d}"
             )
         for admin_id in ADMIN_IDS:
             try:
                 await bot.send_message(
                     admin_id,
-                    "💰 Payout details submitted\n"
-                    f"Round #{claim_round['round_number']}\n"
-                    f"User: {user_str}\n"
-                    f"Account: {message.text.strip()}"
+                    "💰 የክፍያ መቀበያ መረጃ ተላክ\n"
+                    f"ዙር #{claim_round['round_number']}\n"
+                    f"ተጠቃሚ፡ {user_str}\n"
+                    f"ሂሳብ፡ {message.text.strip()}"
                     f"{prize_text}\n\n"
-                    f"Mark as paid with:\n/payout {claim_round['round_number']} {user.id}",
+                    f"ክፍያው እንደተፈጸመ ምልክት ለማድረግ፡\n/payout {claim_round['round_number']} {user.id}",
                 )
             except Exception:
                 pass
@@ -51,7 +51,7 @@ async def on_private_message(message: Message, bot: Bot):
         elif message.text:
             proof = {"type": "text", "value": message.text.strip()}
         else:
-            await message.answer("Please send a payment screenshot or type your transaction ID.")
+            await message.answer("እባክዎ የክፍያ ማረጋገጫ ስክሪንሹት ይላኩ ወይም የግብይት መለያ ቁጥርዎን ይጻፉ።")
             return
 
         # Keep the proof stored even if notifications fail, but do not
@@ -65,10 +65,10 @@ async def on_private_message(message: Message, bot: Bot):
 
         payment_ids = [str(p["_id"]) for p in payments]
         caption = (
-            "🧾 New payment(s) for review\n"
-            f"Numbers: {numbers}\n"
-            f"User: {user_str}\n"
-            f"Amount: {payments[0]['amount']} ETB (each)"
+            "🧾 አዲስ ክፍያ(ዎች) ለግምገማ\n"
+            f"ቁጥሮች፡ {numbers}\n"
+            f"ተጠቃሚ፡ {user_str}\n"
+            f"መጠን፡ {payments[0]['amount']} ብር (ለእያንዳንዱ)"
         )
         kb = build_review_kb_multi(payment_ids)
 
@@ -83,7 +83,7 @@ async def on_private_message(message: Message, bot: Bot):
                 if proof["type"] == "photo":
                     await bot.send_photo(admin_id, proof["value"], caption=caption, reply_markup=kb)
                 else:
-                    await bot.send_message(admin_id, caption + f"\nTx: {proof['value']}", reply_markup=kb)
+                    await bot.send_message(admin_id, caption + f"\nግብይት፡ {proof['value']}", reply_markup=kb)
                 notified = True
             except Exception:
                 try:
@@ -99,7 +99,7 @@ async def on_private_message(message: Message, bot: Bot):
                     if proof["type"] == "photo":
                         await bot.send_photo(group_chat_id, proof["value"], caption=caption, reply_markup=kb)
                     else:
-                        await bot.send_message(group_chat_id, caption + f"\nTx: {proof['value']}", reply_markup=kb)
+                        await bot.send_message(group_chat_id, caption + f"\nግብይት፡ {proof['value']}", reply_markup=kb)
                     notified = True
                 except Exception:
                     try:
@@ -112,13 +112,14 @@ async def on_private_message(message: Message, bot: Bot):
 
         if notified:
             await message.answer(
-                "Got it! Your payment proof for the following numbers was sent for review:\n" + numbers
+                "ተረድቻለሁ! ለሚከተሉት ቁጥሮች የክፍያ ማረጋገጫዎ ለግምገማ ተልኳል፡\n" + numbers
             )
         else:
             await message.answer(
-                "I saved your proof, but I couldn't deliver the review request to admins right now. Please try again later."
+                "ማረጋገጫዎን አስቀምጫለሁ፣ ግን የግምገማ ጥያቄውን ለአስተዳዳሪዎች አሁን ማድረስ አልቻልኩም። እባክዎ ቆይተው እንደገና ይሞክሩ።"
             )
         return
 
     # 3) Nothing pending for this user right now.
     await message.answer(NO_PENDING_ACTION)
+    

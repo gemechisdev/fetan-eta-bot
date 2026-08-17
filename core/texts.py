@@ -1,40 +1,40 @@
 PAYMENT_INSTRUCTIONS = (
-    "You selected number {number}.\n\n"
-    "Price: {amount} ETB\n\n"
-    "Pay to:\n"
-    "Telebirr: 09xxxxxxxx\n"
-    "CBE: 100xxxxxxxx\n\n"
-    "After paying, send a screenshot of the payment OR type the transaction ID here."
+    "ቁጥር {number}ን መርጠዋል።\n\n"
+    "ዋጋ፦ {amount} ብር\n\n"
+    "ክፍያ የሚፈጽሙበት፦\n"
+    "Telebirr፦ 09xxxxxxxx\n"
+    "CBE፦ 100xxxxxxxx\n\n"
+    "ክፍያውን ከፈጸሙ በኋላ የክፍያውን ስክሪንሾት ይላኩ ወይም የግብይት መለያ ቁጥሩን (Transaction ID) እዚህ ይጻፉ።"
 )
 
 PROOF_RECEIVED = (
-    "Got it! Your payment proof for number {number} was sent for review. "
-    "We'll confirm your number shortly."
+    "ተቀብለናል! ለቁጥር {number} የላኩት የክፍያ ማረጋገጫ ለግምገማ ተልኳል። "
+    "ቁጥርዎን በቅርቡ እናረጋግጣለን።"
 )
 
 CLAIM_RECEIVED = (
-    "Thanks! Your payout details were sent to the admins. "
-    "You'll get a confirmation once it's paid out."
+    "እናመሰግናለን! የሽልማት መቀበያ መረጃዎ ለአስተዳዳሪዎች ተልኳል። "
+    "ክፍያው ከተፈጸመ በኋላ የማረጋገጫ መልዕክት ይደርስዎታል።"
 )
 
 NO_PENDING_ACTION = (
-    "Nothing to do right now. Go to the group and tap a number to join the current round.\n\n"
-    "Type /help if you're not sure how it works."
+    "በአሁኑ ጊዜ ምንም የሚያደርጉት ነገር የለም። ወደ ግሩፑ በመሄድ በአሁኑ ዙር ለመሳተፍ ከነጻ ቁጥሮች አንዱን ይንኩ።\n\n"
+    "አሰራሩ ግልጽ ካልሆነዎት /help ይጻፉ።"
 )
 
 WELCOME = (
-    "👋 Welcome to Fetan Eta!\n\n"
-    "Join the lottery from the group by tapping a free number. "
-    "I'll DM you here with payment instructions."
+    "👋 ወደ Fetan Eta(ፈጣን ዕጣ) እንኳን በደህና መጡ!\n\n"
+    "ከግሩፑ ውስጥ ነጻ ቁጥርን በመንካት በሎተሪው ይሳተፉ። "
+    "የክፍያ መመሪያዎችን እዚህ በግል መልዕክት እልክልዎታለሁ።"
 )
 
 HELP = (
-    "How it works:\n"
-    "1. Tap a free number in the group.\n"
-    "2. Pay, then send me the screenshot or transaction ID here.\n"
-    "3. Wait for admin approval.\n"
-    "4. Winners are drawn live in the group once registration closes.\n"
-    "5. If you win, reply here with your payout account (Telebirr/CBE/bank)."
+    "እንዴት ይሰራል?\n"
+    "1. በግሩፑ ውስጥ ካሉት ነጻ ቁጥሮች አንዱን ይንኩ።\n"
+    "2. ክፍያ ይፈጽሙ፣ ከዚያም የክፍያውን ስክሪንሾት ወይም የግብይት መለያ ቁጥሩን እዚህ ይላኩ።\n"
+    "3. የአስተዳዳሪውን ማጽደቅ ይጠብቁ።\n"
+    "4. ምዝገባው ከተዘጋ በኋላ አሸናፊዎች በግሩፑ ውስጥ በቀጥታ ይለያሉ።\n"
+    "5. ካሸነፉ የሽልማት መቀበያ ሂሳብዎን (Telebirr/CBE/ባንክ) ይላኩ።"
 )
 
 
@@ -48,33 +48,33 @@ def build_board_text(round_doc) -> str:
     def prize_icon(index: int) -> str:
         return {0: "🥇", 1: "🥈", 2: "🥉"}.get(index, "🎖")
 
-    prize_lines = "\n".join(f"{prize_icon(i)} {p} ETB" for i, p in enumerate(prizes))
+    prize_lines = "\n".join(f"{prize_icon(i)} {p} ብር" for i, p in enumerate(prizes))
 
     lines = [
         f"🎲 <b>FETAN ETA #{round_doc['round_number']}</b>",
         "",
-        f"Ticket Price: {cfg['ticket_price']} ETB",
-        f"Numbers Left: {left}/{total}",
+        f"የቲኬት ዋጋ፦ {cfg['ticket_price']} ብር",
+        f"የቀሩ ቁጥሮች፦ {left}/{total}",
         "",
-        f"Prize Pool\n{prize_lines}",
+        f"የሽልማት ገንዘብ\n{prize_lines}",
     ]
 
     if results:
         lines.extend([
             "",
-            "<b>Drawn Winners</b>",
+            "<b>የተለዩ አሸናፊዎች</b>",
         ])
         for r in results:
             lines.append(
-                f"{prize_icon(r['place'] - 1)} Place #{r['place']}: Number {r['number']:02d} — {format_user_identity(r.get('display_name'), r.get('username'), r.get('telegram_id'))} — {r['prize']} ETB"
+                f"{prize_icon(r['place'] - 1)} ደረጃ #{r['place']}፦ ቁጥር {r['number']:02d} — {format_user_identity(r.get('display_name'), r.get('username'), r.get('telegram_id'))} — {r['prize']} ብር"
             )
         if round_doc.get("draw", {}).get("seed_hash"):
             lines.extend([
                 "",
-                f"Seed hash: {round_doc['draw']['seed_hash']}",
+                f"የSeed Hash፦ {round_doc['draw']['seed_hash']}",
             ])
 
-    lines.extend(["", "Choose your lucky number below 👇"])
+    lines.extend(["", "ከታች የሚገኘውን የእድል ቁጥርዎን ይምረጡ 👇"])
 
     return "\n".join(lines)
 
@@ -99,12 +99,11 @@ def build_results_text(round_doc, results) -> str:
     for r, prize_str in zip(results, prize_strs):
         pad = " " * (width - len(prize_str))
         result_lines.append(
-            f"┣ {result_icon(r['place'])} #{r['number']:02d} ➜ {pad}{prize_str} ETB"
+            f"┣ {result_icon(r['place'])} #{r['number']:02d} ➜ {pad}{prize_str} ብር"
         )
 
     draw = round_doc.get("draw", {})
     lines = [
-        "🎊",
         "╔═══━━━━━∙•∙◦❉◦∙•∙━━━━━═══╗",
         f"┣   🎉 𝗙𝗘𝗧𝗔𝗡 𝗘𝗧𝗔 — 𝗥𝗢𝗨𝗡𝗗 #{_bold_digits(round_doc['round_number'])}",
         "┣━━━━━━━━━━━━━━━━━━━━━",

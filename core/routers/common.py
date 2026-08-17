@@ -31,8 +31,8 @@ async def cmd_start(message: Message, command: CommandObject, bot: Bot):
     # dialog on someone else's device) can't reserve on their behalf.
     if parsed["user_id"] != message.from_user.id:
         await message.answer(
-            "🚫 This reservation link isn't yours — it was generated for another "
-            "player's tap.\n\nHead to the group and tap a free number yourself to grab one."
+            "🚫 ይህ የምዝገባ ሊንክ የእርስዎ አይደለም — ለሌላ ተጫዋች ጠቅ ማድረግ የተፈጠረ ነው።\n\n"
+            "ወደ ግሩፑ በመሄድ እርስዎ ራስዎ ነጻ የሆነ ቁጥር ይንኩ እና ይምረጡ።"
         )
         return
 
@@ -47,8 +47,7 @@ async def _start_and_reserve(message: Message, bot: Bot, parsed: dict):
     round_doc = await repo.get_active_round(chat_id)
     if not round_doc or round_doc["round_number"] != round_number:
         await message.answer(
-            WELCOME + "\n\nThat round isn't open anymore — head back to the "
-            "group and tap a currently available number."
+            WELCOME + "\n\nይህ ዙር ከእንግዲህ ክፍት አይደለም — ወደ ግሩፑ በመመለስ በአሁኑ ጊዜ የሚገኝ ቁጥር ይንኩ።"
         )
         return
 
@@ -69,7 +68,7 @@ async def _start_and_reserve(message: Message, bot: Bot, parsed: dict):
     if status == "available":
         result = await reserve_number_and_notify(bot, round_doc, number, message.from_user)
         if result["status"] == "reserved":
-            await message.answer(f"👋 Welcome! Number {number:02d} is reserved for you — see payment details above ⬆️")
+            await message.answer(f"👋 እንኳን ደህና መጡ! ቁጥር {number:02d} ለእርስዎ ተይዟል — ከላይ የክፍያ መረጃውን ይመልከቱ ⬆️")
             await round_service.refresh_board(bot, chat_id)
         elif result["status"] == "taken":
             await message.answer(result["message"])
@@ -77,32 +76,32 @@ async def _start_and_reserve(message: Message, bot: Bot, parsed: dict):
             # Extremely unlikely here (we're already inside the DM that would
             # have failed), but handle it gracefully just in case.
             await message.answer(
-                "Something went wrong reserving that number. Please go back to the group and tap it again."
+                "ያንን ቁጥር በመያዝ ላይ ችግር ተፈጥሯል። እባክዎ ወደ ግሩፑ ተመልሰው ቁጥሩን እንደገና ይንኩ።"
             )
         return
 
     if owner_id == message.from_user.id:
         if status == "pending":
             await message.answer(
-                f"You've already reserved number {number:02d} — check above for the payment details 👆"
+                f"ቁጥር {number:02d}ን አስቀድመው ይዘዋል — የክፍያ መረጃውን ከላይ ይመልከቱ 👆"
             )
         else:
-            await message.answer(f"🎉 Number {number:02d} is confirmed as yours!")
+            await message.answer(f"🎉 ቁጥር {number:02d} የእርስዎ መሆኑ ተረጋግጧል!")
         return
 
-    who = number_doc.get("display_name") or number_doc.get("username") or "another player"
+    who = number_doc.get("display_name") or number_doc.get("username") or "ሌላ ተጫዋች"
     if status == "pending":
         await message.answer(
-            f"🟡 Number {number:02d} is currently pending — {who} tapped it first and is "
-            "completing payment. Head back to the group and pick a different number 👇"
+            f"🟡 ቁጥር {number:02d} በአሁኑ ጊዜ በመጠባበቅ ላይ ነው — {who} ከእርስዎ በፊት ነክቶታል እና ክፍያውን እያጠናቀቀ ነው። "
+            "ወደ ግሩፑ ተመልሰው ሌላ ቁጥር ይምረጡ 👇"
         )
     else:
         await message.answer(
-            f"🟢 Number {number:02d} is already reserved by {who}. Head back to the "
-            "group and pick a different number 👇"
+            f"🟢 ቁጥር {number:02d} አስቀድሞ በ{who} ተይዟል። ወደ ግሩፑ ተመልሰው ሌላ ቁጥር ይምረጡ 👇"
         )
 
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
     await message.answer(HELP)
+    

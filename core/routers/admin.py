@@ -32,14 +32,14 @@ def _parse_optional_chat_id(parts: list[str], current_chat_id: int, min_payload_
 
 
 def _round_help(command: str) -> str:
-    return f"Usage: {command} ... [chat_id]"
+    return f"አጠቃቀም፦ {command} ... [chat_id]"
 
 
 def _format_draw_result_line(result: dict) -> str:
     medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(result.get("place"), "🎖")
     who = format_user_identity(result.get("display_name"), result.get("username"), result.get("telegram_id"))
     return (
-        f"{medal} Place #{result['place']}: Number {result['number']:02d} — {who} — Prize: {result['prize']} ETB"
+        f"{medal} ደረጃ #{result['place']}፦ ቁጥር {result['number']:02d} — {who} — ሽልማት፦ {result['prize']} ብር"
     )
 
 
@@ -85,15 +85,15 @@ async def cmd_newround(message: Message):
             total_numbers = int(parts[-1])
             prizes = [int(x) for x in parts[2:-1]]
     except (IndexError, ValueError):
-        await message.answer("Usage: /newround price prize1 prize2 ... prizeN participants_count [chat_id]")
+        await message.answer("አጠቃቀም፦ /newround price prize1 prize2 ... prizeN participants_count [chat_id]")
         return
 
     if not prizes:
-        await message.answer("Usage: /newround price prize1 prize2 ... prizeN participants_count [chat_id]")
+        await message.answer("አጠቃቀም፦ /newround price prize1 prize2 ... prizeN participants_count [chat_id]")
         return
 
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /newround price prize1 prize2 ... prizeN participants_count [chat_id]")
+        await message.answer("አጠቃቀም፦ /newround price prize1 prize2 ... prizeN participants_count [chat_id]")
         return
 
     round_doc, error = await round_service.start_new_round(target_chat_id, price, prizes, total_numbers)
@@ -120,15 +120,15 @@ async def cmd_close(message: Message):
 
     target_chat_id, _ = _resolve_round_chat_id(message.text.split(), message.chat.id, min_tokens_without_chat=1)
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /closeregistration [chat_id]")
+        await message.answer("አጠቃቀም፦ /closeregistration [chat_id]")
         return
     round_doc = await repo.get_active_round(target_chat_id)
     if not round_doc or round_doc["status"] != "registration_open":
-        await message.answer("No open round to close.")
+        await message.answer("ለመዝጋት ክፍት ዙር የለም።")
         return
 
     await round_service.close_registration(round_doc)
-    await message.answer(f"Registration closed for chat {target_chat_id}. Run /startdraw when ready.")
+    await message.answer(f"ምዝገባው ተዘግቷል። ለመጀመር ዝግጁ ሲሆኑ /startdraw ያስኪዱ።")
 
 
 @router.message(Command("startdraw", "sd"))
@@ -138,11 +138,11 @@ async def cmd_startdraw(message: Message, bot: Bot):
 
     target_chat_id, _ = _resolve_round_chat_id(message.text.split(), message.chat.id, min_tokens_without_chat=1)
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /startdraw [chat_id]")
+        await message.answer("አጠቃቀም፦ /startdraw [chat_id]")
         return
     round_doc = await repo.get_active_round(target_chat_id)
     if not round_doc or round_doc["status"] != "registration_closed":
-        await message.answer("Close registration first with /closeregistration.")
+        await message.answer("መጀመሪያ ምዝገባውን በ /closeregistration ይዝጉ።")
         return
 
     results, error = await draw_service.commit_and_draw(round_doc, bot, target_chat_id)
@@ -163,8 +163,8 @@ async def cmd_startdraw(message: Message, bot: Bot):
 
     for r in results:
         win_text = (
-            f"🎉 You won {r['prize']} ETB (place #{r['place']}, number {r['number']:02d})!\n"
-            f"Reply here with your payout account (Telebirr/CBE/bank) to claim it."
+            f"🎉 {r['prize']} ብር አሸንፈዋል (ደረጃ #{r['place']}፣ ቁጥር {r['number']:02d})!\n"
+            f"ሽልማቱን ለመቀበል የክፍያ መቀበያ ሂሳብዎን (Telebirr/CBE/ባንክ) እዚህ በመልስ ይላኩ።"
         )
         try:
             # Message effects (the fun full-screen animations) only work in
@@ -189,11 +189,11 @@ async def cmd_pending(message: Message, bot: Bot):
 
     target_chat_id, _ = _resolve_round_chat_id(message.text.split(), message.chat.id, min_tokens_without_chat=1)
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /pending [chat_id]")
+        await message.answer("አጠቃቀም፦ /pending [chat_id]")
         return
     round_doc = await repo.get_active_round(target_chat_id)
     if not round_doc:
-        await message.answer("No active round.")
+        await message.answer("ምንም ንቁ ዙር የለም።")
         return
 
     try:
@@ -203,7 +203,7 @@ async def cmd_pending(message: Message, bot: Bot):
 
     pending = await repo.get_pending_payments(round_doc["_id"])
     if not pending:
-        await message.answer("No payments awaiting review.")
+        await message.answer("ለግምገማ የሚጠብቅ ክፍያ የለም።")
         return
 
     for p in pending:
@@ -216,7 +216,7 @@ async def cmd_pending(message: Message, bot: Bot):
         )
         who = format_user_identity(resolved.get("display_name"), resolved.get("username"), resolved.get("telegram_id"))
         await message.answer(
-            f"Number {p['number']:02d} — {who} — {p['amount']} ETB",
+            f"ቁጥር {p['number']:02d} — {who} — {p['amount']} ብር",
             reply_markup=build_review_kb(str(p["_id"])),
         )
 
@@ -228,18 +228,18 @@ async def cmd_cancel(message: Message):
 
     target_chat_id, _ = _resolve_round_chat_id(message.text.split(), message.chat.id, min_tokens_without_chat=1)
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /cancelround [chat_id]")
+        await message.answer("አጠቃቀም፦ /cancelround [chat_id]")
         return
     round_doc = await repo.get_active_round(target_chat_id)
     if not round_doc:
-        await message.answer("No active round.")
+        await message.answer("ምንም ንቁ ዙር የለም።")
         return
 
     await repo.set_round_status(round_doc["_id"], "cancelled")
     # Also close out any open payments so they don't linger as
     # "awaiting_proof" and get swept into an unrelated future round.
     await repo.cancel_round_payments(round_doc["_id"])
-    await message.answer(f"Round #{round_doc['round_number']} cancelled.")
+    await message.answer(f"ዙር #{round_doc['round_number']} ተሰርዟል።")
 
 
 @router.message(Command("listrounds", "rounds"))
@@ -249,15 +249,15 @@ async def cmd_listrounds(message: Message):
 
     target_chat_id, _ = _resolve_round_chat_id(message.text.split(), message.chat.id, min_tokens_without_chat=1)
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /listrounds [chat_id]")
+        await message.answer("አጠቃቀም፦ /listrounds [chat_id]")
         return
     rounds = await repo.list_rounds(target_chat_id)
     if not rounds:
-        await message.answer("No rounds yet.")
+        await message.answer("እስካሁን ምንም ዙር የለም።")
         return
     lines = []
     for r in rounds:
-        lines.append(f"#{r['round_number']} — status: {r['status']} — created: {r['created_at']}")
+        lines.append(f"#{r['round_number']} — ሁኔታ፦ {r['status']} — የተፈጠረበት፦ {r['created_at']}")
     await message.answer("\n".join(lines))
 
 
@@ -271,16 +271,16 @@ async def cmd_showround(message: Message, bot: Bot):
         rn = int(parts[1])
         target_chat_id, _ = _resolve_round_chat_id(parts, message.chat.id, min_tokens_without_chat=2)
     except (IndexError, ValueError):
-        await message.answer("Usage: /showround round_number [chat_id]")
+        await message.answer("አጠቃቀም፦ /showround round_number [chat_id]")
         return
 
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /showround round_number [chat_id]")
+        await message.answer("አጠቃቀም፦ /showround round_number [chat_id]")
         return
 
     round_doc = await repo.get_round_by_number(target_chat_id, rn)
     if not round_doc:
-        await message.answer("Round not found.")
+        await message.answer("ዙሩ አልተገኘም።")
         return
 
     try:
@@ -302,7 +302,7 @@ async def cmd_showround(message: Message, bot: Bot):
         owner = format_user_identity(resolved.get('display_name'), resolved.get('username'), resolved.get('telegram_id'))
         nums.append(f"{n['number']:02d}: {n['status']} — {owner}")
     await message.answer(
-        f"Round #{round_doc['round_number']}\nStatus: {round_doc['status']}\n" + "\n".join(nums)
+        f"ዙር #{round_doc['round_number']}\nሁኔታ፦ {round_doc['status']}\n" + "\n".join(nums)
     )
 
 
@@ -316,16 +316,16 @@ async def cmd_deleteround(message: Message, bot: Bot):
         rn = int(parts[1])
         target_chat_id, _ = _resolve_round_chat_id(parts, message.chat.id, min_tokens_without_chat=2)
     except (IndexError, ValueError):
-        await message.answer("Usage: /deleteround round_number [chat_id]")
+        await message.answer("አጠቃቀም፦ /deleteround round_number [chat_id]")
         return
 
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /deleteround round_number [chat_id]")
+        await message.answer("አጠቃቀም፦ /deleteround round_number [chat_id]")
         return
 
     round_doc = await repo.get_round_by_number(target_chat_id, rn)
     if not round_doc:
-        await message.answer("Round not found.")
+        await message.answer("ዙሩ አልተገኘም።")
         return
 
     # delete stored board message if present
@@ -341,7 +341,7 @@ async def cmd_deleteround(message: Message, bot: Bot):
     # still get swept into a later, unrelated payment for the same user.
     await repo.cancel_round_payments(round_doc['_id'])
     await repo.delete_round(round_doc['_id'])
-    await message.answer(f"Deleted round #{rn}.")
+    await message.answer(f"ዙር #{rn} ተሰርዟል።")
 
 
 @router.message(Command("resendboard", "board"))
@@ -354,16 +354,16 @@ async def cmd_resendboard(message: Message, bot: Bot):
         rn = int(parts[1])
         target_chat_id, _ = _resolve_round_chat_id(parts, message.chat.id, min_tokens_without_chat=2)
     except (IndexError, ValueError):
-        await message.answer("Usage: /resendboard round_number [chat_id]")
+        await message.answer("አጠቃቀም፦ /resendboard round_number [chat_id]")
         return
 
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /resendboard round_number [chat_id]")
+        await message.answer("አጠቃቀም፦ /resendboard round_number [chat_id]")
         return
 
     round_doc = await repo.get_round_by_number(target_chat_id, rn)
     if not round_doc:
-        await message.answer("Round not found.")
+        await message.answer("ዙሩ አልተገኘም።")
         return
 
     prev_id = round_doc.get('message_refs', {}).get('board_message_id')
@@ -396,16 +396,16 @@ async def cmd_assignnumber(message: Message, bot: Bot):
         target_chat_id, payload_parts = _resolve_round_chat_id(parts, message.chat.id, min_tokens_without_chat=4)
         display_name = " ".join(payload_parts[4:]) if len(payload_parts) > 4 else None
     except (IndexError, ValueError):
-        await message.answer("Usage: /assignnumber round_number number telegram_id|@username [display_name] [chat_id]")
+        await message.answer("አጠቃቀም፦ /assignnumber round_number number telegram_id|@username [display_name] [chat_id]")
         return
 
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /assignnumber round_number number telegram_id|@username [display_name] [chat_id]")
+        await message.answer("አጠቃቀም፦ /assignnumber round_number number telegram_id|@username [display_name] [chat_id]")
         return
 
     round_doc = await repo.get_round_by_number(target_chat_id, rn)
     if not round_doc:
-        await message.answer("Round not found.")
+        await message.answer("ዙሩ አልተገኘም።")
         return
 
     telegram_id = None
@@ -449,12 +449,12 @@ async def cmd_assignnumber(message: Message, bot: Bot):
             user_str = format_user_identity(resolved.get("display_name"), resolved.get("username"), resolved.get("telegram_id"))
             await bot.send_message(
                 resolved.get("telegram_id"),
-                f"You were assigned number {number:02d} in round #{rn} by an admin.\n\nAssigned to: {user_str}"
+                f"በአስተዳዳሪ ዙር #{rn} ውስጥ ቁጥር {number:02d} ተመድቦልዎታል።\n\nየተመደበው፦ {user_str}"
             )
         except Exception:
             pass
     assigned_to = format_user_identity(resolved.get("display_name"), resolved.get("username"), resolved.get("telegram_id"))
-    await message.answer(f"Assigned number {number:02d} in round #{rn} to {assigned_to} in chat {target_chat_id}.")
+    await message.answer(f"ቁጥር {number:02d} በዙር #{rn} ለ{assigned_to} በቻት {target_chat_id} ተመድቧል።")
 
 
 @router.message(Command("revoke", "rv"))
@@ -470,32 +470,32 @@ async def cmd_revoke(message: Message, bot: Bot):
         number = int(parts[2])
         target_chat_id, _ = _resolve_round_chat_id(parts, message.chat.id, min_tokens_without_chat=3)
     except (IndexError, ValueError):
-        await message.answer("Usage: /revoke round_number number [chat_id]")
+        await message.answer("አጠቃቀም፦ /revoke round_number number [chat_id]")
         return
 
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /revoke round_number number [chat_id]")
+        await message.answer("አጠቃቀም፦ /revoke round_number number [chat_id]")
         return
 
     round_doc = await repo.get_round_by_number(target_chat_id, rn)
     if not round_doc:
-        await message.answer("Round not found.")
+        await message.answer("ዙሩ አልተገኘም።")
         return
 
-    previous_holder = await repo.revoke_number(round_doc["_id"], number)
+    previous_holder = await repo.revoke_number(round_doc["id"], number)
     if previous_holder is None:
-        await message.answer(f"Number {number:02d} not found in round #{rn}.")
+        await message.answer(f"ቁጥር {number:02d} በዙር #{rn} ውስጥ አልተገኘም።")
         return
 
     if not previous_holder.get("released_ok"):
         await message.answer(
-            f"⚠️ Tried to revoke number {number:02d} in round #{rn}, but it still isn't "
-            f"showing as available. Please check /showround {rn}."
+            f"⚠️ በዙር #{rn} ውስጥ ቁጥር {number:02d}ን ለመሰረዝ ተሞክሯል፣ ነገር ግን አሁንም እንደ ነጻ አይታይም። "
+            f"እባክዎ /showround {rn} ይመልከቱ።"
         )
         return
 
     # Reflect the release on the board.
-    fresh = await repo.get_round(round_doc["_id"])
+    fresh = await repo.get_round(round_doc["id"])
     board_id = fresh["message_refs"].get("board_message_id")
     if board_id:
         try:
@@ -509,8 +509,8 @@ async def cmd_revoke(message: Message, bot: Bot):
         try:
             await bot.send_message(
                 previous_holder["telegram_id"],
-                f"⚠️ Your reservation for number {number:02d} in round #{rn} was revoked by an admin. "
-                "It's available again — feel free to pick another number in the group.",
+                f"⚠️ በዙር #{rn} ውስጥ ለቁጥር {number:02d} ያደረጉት ምዝገባ በአስተዳዳሪ ተሰርዟል። "
+                "ቁጥሩ እንደገና ነጻ ሆኗል — በግሩፑ ውስጥ ሌላ ቁጥር መምረጥ ይችላሉ።",
             )
         except Exception:
             pass
@@ -519,12 +519,12 @@ async def cmd_revoke(message: Message, bot: Bot):
         who = format_user_identity(
             previous_holder.get("display_name"), previous_holder.get("username"), previous_holder.get("telegram_id")
         )
-        status_label = "pending" if previous_holder.get("status") == "pending" else "reserved"
+        status_label = "በመጠባበቅ ላይ" if previous_holder.get("status") == "pending" else "ተይዟል"
     else:
-        who = "nobody (was already available)"
+        who = "ማንም የለም (አስቀድሞ ነጻ ነበር)"
         status_label = None
-    was_text = f"was: {who}, {status_label}" if status_label else f"was: {who}"
-    await message.answer(f"✅ Revoked number {number:02d} in round #{rn} ({was_text}). It's available again.")
+    was_text = f"ነበር፦ {who}፣ {status_label}" if status_label else f"ነበር፦ {who}"
+    await message.answer(f"✅ ቁጥር {number:02d} በዙር #{rn} ተሰርዟል ({was_text})። እንደገና ነጻ ሆኗል።")
 
 
 @router.message(Command("payout", "paid"))
@@ -538,32 +538,32 @@ async def cmd_payout(message: Message, bot: Bot):
         telegram_id = int(parts[2])
         target_chat_id, _ = _resolve_round_chat_id(parts, message.chat.id, min_tokens_without_chat=3)
     except (IndexError, ValueError):
-        await message.answer("Usage: /payout round_number telegram_id [chat_id]")
+        await message.answer("አጠቃቀም፦ /payout round_number telegram_id [chat_id]")
         return
 
     if _private_chat_id_required(message, target_chat_id):
-        await message.answer("Usage: /payout round_number telegram_id [chat_id]")
+        await message.answer("አጠቃቀም፦ /payout round_number telegram_id [chat_id]")
         return
 
     round_doc = await repo.get_round_by_number(target_chat_id, round_number)
     if not round_doc:
-        await message.answer("Round not found.")
+        await message.answer("ዙሩ አልተገኘም።")
         return
 
     await repo.mark_payout_paid(round_doc["_id"], telegram_id)
-    await message.answer("Marked as paid ✅")
+    await message.answer("ክፍያ ተፈጽሟል ተብሎ ተመዝግቧል ✅")
     try:
         winner = next((r for r in round_doc.get("draw", {}).get("results", []) if r.get("telegram_id") == telegram_id), None)
         prize_text = ""
         if winner:
             prize_text = (
-                f"\nPrize: {winner.get('prize', 0)} ETB\n"
-                f"Place: #{winner.get('place')}\n"
-                f"Winning number: {winner.get('number'):02d}"
+                f"\nሽልማት፦ {winner.get('prize', 0)} ብር\n"
+                f"ደረጃ፦ #{winner.get('place')}\n"
+                f"ያሸነፉበት ቁጥር፦ {winner.get('number'):02d}"
             )
         await bot.send_message(
             telegram_id,
-            "✅ Your prize has been paid out. Thank you for playing Fetan Eta!" + prize_text,
+            "✅ ሽልማትዎ ተከፍሏል። Fetan Etaን ስለተሳተፉ እናመሰግናለን!" + prize_text,
         )
     except Exception:
         pass
@@ -578,11 +578,11 @@ async def cmd_addadmin(message: Message):
     try:
         aid = int(parts[1])
     except (IndexError, ValueError):
-        await message.answer("Usage: /addadmin telegram_id")
+        await message.answer("አጠቃቀም፦ /addadmin telegram_id")
         return
 
     await repo.add_admin(aid)
-    await message.answer(f"Added {aid} as admin.")
+    await message.answer(f"{aid} እንደ አስተዳዳሪ ታክሏል።")
 
 
 @router.message(Command("deladmin", "dadmin"))
@@ -594,11 +594,11 @@ async def cmd_deladmin(message: Message):
     try:
         aid = int(parts[1])
     except (IndexError, ValueError):
-        await message.answer("Usage: /deladmin telegram_id")
+        await message.answer("አጠቃቀም፦ /deladmin telegram_id")
         return
 
     await repo.remove_admin(aid)
-    await message.answer(f"Removed {aid} from admins.")
+    await message.answer(f"{aid} ከአስተዳዳሪዎች ተወግዷል።")
 
 
 @router.message(Command("listadmins", "admins"))
@@ -608,7 +608,7 @@ async def cmd_listadmins(message: Message):
 
     admins = await repo.get_admins()
     lines = [str(a) for a in admins]
-    await message.answer("Admins:\n" + "\n".join(lines))
+    await message.answer("አስተዳዳሪዎች፦\n" + "\n".join(lines))
 
 
 @router.message(Command("chat", "msg"))
@@ -620,7 +620,7 @@ async def cmd_chat(message: Message, bot: Bot):
     try:
         target = int(parts[1])
     except (IndexError, ValueError):
-        await message.answer("Usage: /chat telegram_id <message> (or reply to a message with /chat telegram_id)")
+        await message.answer("አጠቃቀም፦ /chat telegram_id <message> (ወይም መልዕክት ላይ በመመለስ /chat telegram_id ይጠቀሙ)")
         return
 
     # If text provided inline, send it; otherwise forward/copy the replied-to message
@@ -628,59 +628,59 @@ async def cmd_chat(message: Message, bot: Bot):
         txt = parts[2].strip()
         try:
             await bot.send_message(target, txt)
-            await message.answer("Sent message to user.")
+            await message.answer("መልዕክቱ ለተጠቃሚው ተልኳል።")
         except Exception:
-            await message.answer("Failed to send message to user.")
+            await message.answer("መልዕክቱን ለተጠቃሚው መላክ አልተቻለም።")
         return
 
     # No inline text: expect this message is a reply to something to forward/copy
     if not message.reply_to_message:
-        await message.answer("Reply to a message or provide a text to send.")
+        await message.answer("መልዕክቱን ለመላክ መልዕክት ላይ በመመለስ ይጻፉ ወይም የሚላከውን ጽሑፍ ያቅርቡ።")
         return
 
     rm = message.reply_to_message
     try:
         # Use copy_message to preserve media and caption but attribute to bot
         await bot.copy_message(chat_id=target, from_chat_id=rm.chat.id, message_id=rm.message_id)
-        await message.answer("Forwarded replied message to user.")
+        await message.answer("የተመለሱበት መልዕክት ለተጠቃሚው ተላልፏል።")
     except Exception:
         try:
             await bot.forward_message(chat_id=target, from_chat_id=rm.chat.id, message_id=rm.message_id)
-            await message.answer("Forwarded replied message to user.")
+            await message.answer("የተመለሱበት መልዕክት ለተጠቃሚው ተላልፏል።")
         except Exception:
-            await message.answer("Failed to forward the replied message to user.")
+            await message.answer("የተመለሱበትን መልዕክት ለተጠቃሚው ማስተላለፍ አልተቻለም።")
 
 
 @router.callback_query(F.data.startswith("rev:"))
 async def on_review(callback: CallbackQuery, bot: Bot):
     if not await is_admin(callback.from_user.id):
-        await callback.answer("Admins only.", show_alert=True)
+        await callback.answer("ለአስተዳዳሪዎች ብቻ።", show_alert=True)
         return
 
     # support multiple payment ids joined by commas in the third segment
     parts = callback.data.split(":", 2)
     if len(parts) < 3:
-        await callback.answer("Invalid action.", show_alert=True)
+        await callback.answer("ልክ ያልሆነ ተግባር።", show_alert=True)
         return
     _, action, ids_raw = parts
     ids = [pid for pid in ids_raw.split(",") if pid]
 
     status_labels = {
-        "awaiting_review": "Awaiting review",
-        "approved": "Approved",
-        "rejected": "Rejected",
-        "cancelled": "Cancelled",
+        "awaiting_review": "ግምገማ እየተጠበቀ ነው",
+        "approved": "ጸድቋል",
+        "rejected": "ውድቅ ተደርጓል",
+        "cancelled": "ተሰርዟል",
     }
 
     async def _edit_review_message(status_text: str):
         try:
             if callback.message.photo:
                 current_caption = callback.message.caption or ""
-                new_caption = f"{current_caption}\n\nStatus: {status_text}" if current_caption else f"Status: {status_text}"
+                new_caption = f"{current_caption}\n\nሁኔታ፦ {status_text}" if current_caption else f"ሁኔታ፦ {status_text}"
                 await callback.message.edit_caption(caption=new_caption, reply_markup=None)
             else:
                 current_text = callback.message.text or ""
-                new_text = f"{current_text}\n\nStatus: {status_text}" if current_text else f"Status: {status_text}"
+                new_text = f"{current_text}\n\nሁኔታ፦ {status_text}" if current_text else f"ሁኔታ፦ {status_text}"
                 await callback.message.edit_text(text=new_text, reply_markup=None)
         except Exception:
             try:
@@ -693,8 +693,8 @@ async def on_review(callback: CallbackQuery, bot: Bot):
             payment = await repo.get_payment(pid)
             if payment:
                 st = payment.get("status", "unknown")
-                return f"Already {status_labels.get(st, st.title())} by another admin."
-        return "Already handled by another admin."
+                return f"አስቀድሞ በሌላ አስተዳዳሪ {status_labels.get(st, st.title())}።"
+        return "አስቀድሞ በሌላ አስተዳዳሪ ተስተናግዷል።"
 
     handled = 0
     affected_rounds = set()
@@ -710,7 +710,7 @@ async def on_review(callback: CallbackQuery, bot: Bot):
             try:
                 await bot.send_message(
                     payment["telegram_id"],
-                    f"✅ Your payment for number {payment['number']:02d} was approved. You're in!",
+                    f"✅ ለቁጥር {payment['number']:02d} የፈጸሙት ክፍያ ጸድቋል። ተሳትፎዎ ተረጋግጧል!",
                 )
             except Exception:
                 pass
@@ -719,7 +719,7 @@ async def on_review(callback: CallbackQuery, bot: Bot):
             try:
                 await bot.send_message(
                     payment["telegram_id"],
-                    f"❌ Your payment for number {payment['number']:02d} was rejected. The number is available again.",
+                    f"❌ ለቁጥር {payment['number']:02d} የፈጸሙት ክፍያ ውድቅ ተደርጓል። ቁጥሩ እንደገና ነጻ ሆኗል።",
                 )
             except Exception:
                 pass
@@ -730,7 +730,7 @@ async def on_review(callback: CallbackQuery, bot: Bot):
             affected_rounds.add(str(payment.get("round_id")))
 
     if handled:
-        await callback.answer("Handled ✅")
+        await callback.answer("ተስተናግዷል ✅")
     else:
         await callback.answer(await _current_status_alert(), show_alert=True)
 
@@ -748,4 +748,5 @@ async def on_review(callback: CallbackQuery, bot: Bot):
             pass
 
     if handled:
-        await _edit_review_message("Approved" if action == "approve" else "Rejected")
+        await _edit_review_message("ጸድቋል" if action == "approve" else "ውድቅ ተደርጓል")
+        
