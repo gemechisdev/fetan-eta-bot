@@ -1,7 +1,8 @@
 from datetime import datetime, timezone, timedelta
-from typing import List
+from typing import List, Optional
 
 from core import config as core_config
+from core.i18n import DEFAULT_LANG, SUPPORTED_LANGS
 
 from bson import ObjectId
 
@@ -635,3 +636,121 @@ async def get_pending_payments(round_id):
     db = get_db()
     cursor = db.payments.find({"round_id": round_id, "status": "awaiting_review"})
     return [p async for p in cursor]
+
+
+# ---------------------------------------------------------------------------
+# Per-chat language settings
+#
+# Each chat (group OR private/DM - Telegram uses the same chat_id space for
+# both) can have its own language, independent of every other chat. Settings
+# are persisted in the `chat_settings` collection so they survive restarts,
+# and cached in-memory here to avoid a DB round-trip on every single message.
+# The cache is populated lazily (on first read) and updated on every write,
+# so a fresh process always ends up with the correct value on first access -
+# "safe retrieve on restart" - without needing to preload anything at boot.
+# ---------------------------------------------------------------------------
+
+_language_cache: dict[int, str] = {}
+
+
+async def get_chat_language(chat_id: int) -> str:
+    if chat_id in _language_cache:
+        return _language_cache[chat_id]
+
+    db = get_db()
+    doc = await db.chat_settings.find_one({"chat_id": chat_id})
+    lang = doc.get("language") if doc else None
+    if lang not in SUPPORTED_LANGS:
+        lang = DEFAULT_LANG
+    _language_cache[chat_id] = lang
+    return lang
+
+
+async def set_chat_language(chat_id: int, lang: str) -> None:
+    if lang not in SUPPORTED_LANGS:
+        lang = DEFAULT_LANG
+    db = get_db()
+    await db.chat_settings.update_one(
+        {"chat_id": chat_id},
+        {"$set": {"chat_id": chat_id, "language": lang, "updated_at": utcnow()}},
+        upsert=True,
+    )
+    _language_cache[chat_id] = lang
+
+
+# ---------------------------------------------------------------------------
+# Payment methods
+#
+# Universal (bot-wide, not per-round/per-chat) list of ways to pay, fully
+# admin-editable via /addpayment, /editpayment, /delpayment, /togglepayment,
+# /listpayments (see core/routers/admin.py). Payment instructions shown to
+# players are built dynamically from whatever is active here, so adding a
+# new payment option (or changing an account number) never requires a code
+# change or redeploy.
+# ---------------------------------------------------------------------------
+
+async def add_payment_method(name: str, details: str):
+    db = get_db()
+    last = await db.payment_methods.find_one({}, sort=[("order", -1)])
+    order = (last["order"] + 1) if last else 0
+    doc = {
+        "name": name,
+        "details": details,
+        "active": True,
+        "order": order,
+        "created_at": utcnow(),
+    }
+    result = await db.payment_methods.insert_one(doc)
+    doc["_id"] = result.inserted_id
+    return doc
+
+
+async def list_payment_methods(active_only: bool = False) -> List[dict]:
+    db = get_db()
+    query = {"active": True} if active_only else {}
+    cursor = db.payment_methods.find(query).sort([("order", 1), ("created_at", 1)])
+    return [p async for p in cursor]
+
+
+async def get_payment_method(payment_method_id) -> Optional[dict]:
+    db = get_db()
+    try:
+        return await db.payment_methods.find_one({"_id": _oid(payment_method_id)})
+    except Exception:
+        return None
+
+
+async def update_payment_method(payment_method_id, name: str = None, details: str = None) -> bool:
+    db = get_db()
+    fields = {}
+    if name is not None:
+        fields["name"] = name
+    if details is not None:
+        fields["details"] = details
+    if not fields:
+        return False
+    try:
+        result = await db.payment_methods.update_one({"_id": _oid(payment_method_id)}, {"$set": fields})
+    except Exception:
+        return False
+    return result.matched_count == 1
+
+
+async def set_payment_method_active(payment_method_id, active: bool) -> bool:
+    db = get_db()
+    try:
+        result = await db.payment_methods.update_one(
+            {"_id": _oid(payment_method_id)}, {"$set": {"active": active}}
+        )
+    except Exception:
+        return False
+    return result.matched_count == 1
+
+
+async def delete_payment_method(payment_method_id) -> bool:
+    db = get_db()
+    try:
+        result = await db.payment_methods.delete_one({"_id": _oid(payment_method_id)})
+    except Exception:
+        return False
+    return result.deleted_count == 1

@@ -1,0 +1,222 @@
+# English strings for Fetan Eta bot.
+# {placeholders} are substituted at runtime - keep them, don't translate them.
+# This file is also the fallback language: if a key is missing from another
+# language file, the bot falls back to the value here.
+
+# --- general / common.py ---
+welcome: >-
+  👋 Welcome to Fetan Eta!
+
+  Tap a free number in the group to join the lottery. I'll send you the
+  payment instructions here in a private message.
+help: |-
+  How does it work?
+  1. Tap one of the free numbers in the group.
+  2. Pay, then send the payment screenshot or the transaction ID here.
+  3. Wait for admin approval.
+  4. Once registration closes, winners are announced directly in the group.
+  5. If you win, send your payout account (Telebirr/CBE/bank) here.
+link_not_yours: |-
+  🚫 This registration link isn't yours - it was generated for a different player to tap.
+
+  Go back to the group and tap a free number yourself.
+round_closed_suffix: "\n\nThis round is no longer open - go back to the group and tap a number that's currently available."
+number_reserved_for_you: "👋 Welcome! Number {number} is reserved for you - see the payment info above ⬆️"
+reserve_generic_error: "There was a problem holding that number. Please go back to the group and tap the number again."
+you_already_hold_pending: "You already hold number {number} - see the payment info above 👆"
+you_own_confirmed: "🎉 Number {number} is confirmed as yours!"
+number_pending_other: "🟡 Number {number} is currently pending - {who} tapped it before you and is completing payment. Go back to the group and pick another number 👇"
+number_reserved_other: "🟢 Number {number} is already taken by {who}. Go back to the group and pick another number 👇"
+other_player: "another player"
+no_pending_action: |-
+  There's nothing for you to do right now. Go to the group and tap one of the free numbers to join the current round.
+
+  If you're not sure how it works, type /help.
+claim_received: |-
+  Thank you! Your payout details have been sent to the admins. You'll get a confirmation message once the payment is made.
+
+# --- private.py ---
+ask_for_payment_proof: "Please send a screenshot of your payment or type your transaction ID."
+admin_payout_info_notify: |-
+  💰 Payout details submitted
+  Round #{round_number}
+  User: {user}
+  Account: {account}{prize_text}
+
+  To mark this as paid:
+  /payout {round_number} {telegram_id}
+prize_details_lines: |-
+
+  Prize: {prize} {currency}
+  Place: #{place}
+  Winning number: {number}
+admin_payment_review_caption: |-
+  🧾 New payment(s) for review
+  Numbers: {numbers}
+  User: {user}
+  Amount: {amount} {currency} (each)
+admin_payment_txn_suffix: "\nTransaction: {value}"
+proof_submitted_confirmation: "Got it! Your payment confirmation for the following numbers has been sent for review:\n{numbers}"
+proof_saved_notify_failed: "I've saved your confirmation, but couldn't reach the admins for review right now. Please try again shortly."
+
+# --- selection.py ---
+round_ended: "This round has ended."
+invalid_number: "Invalid number."
+opening_dm: "Opening your private message to hold number {number}…"
+selection_cancelled: "Selection of number {number} has been cancelled."
+number_pending_taken_alert: "🟡 Number {number} is pending - held by {who}. Pick another number."
+number_reserved_taken_alert: "🟢 Number {number} is already taken by {who}."
+
+# --- board / results text (texts.py) ---
+board_title: "🎲 <b>FETAN ETA #{round_number}</b>"
+board_ticket_price: "Ticket price: {price} {currency}"
+board_left_numbers: "Numbers left: {left}/{total}"
+board_prize_money: "Prize money\n{prize_lines}"
+board_prize_line: "{icon} {prize} {currency}"
+board_winners_header: "Winners"
+board_winner_line: "{icon} Place #{place}: number {number:02d} — {who} — {prize} {currency}"
+board_seed_hash: "Seed hash: {hash}"
+board_choose_number: "Pick your lucky number below 👇"
+results_title: "🎉 𝗙𝗘𝗧𝗔𝗡 𝗘𝗧𝗔 — 𝗥𝗢𝗨𝗡𝗗 #{round_number}"
+results_line: "{icon} #{number:02d} ➜ {pad}{prize} {currency}"
+results_hash: "🔐 Hash ➜"
+results_seed: "🔑 Seed ➜"
+
+# --- round_service.py ---
+reservation_summary: |-
+  Reserved number(s): {numbers}.
+
+  Total: {total} {currency}
+
+  {payment_footer}
+no_numbers_placeholder: "(none)"
+round_already_active: "Round #{round_number} is still active (status: {status}). Finish it first, or run /cancelround."
+registration_closed_for_round: "Registration for this round is closed."
+taken_by_someone: "This number is already taken by {who}. Please pick another number."
+taken_generic: "This number was just taken by someone else. Please pick another number."
+payment_methods_footer: |-
+  Pay using one of the following:
+  {methods}
+
+  After paying, send the payment screenshot or the transaction ID here.
+payment_method_line: "{name}: {details}"
+no_payment_methods: "No payment methods are configured yet. Please contact an admin."
+
+# --- draw_service.py ---
+no_reserved_numbers_to_draw: "There are no reserved numbers to draw from."
+seed_commit_message: |-
+  🔒 Draw seed hash (SHA-256):
+  <code>{hash}</code>
+
+  Once the seed is revealed below, anyone can verify the result.
+drawing_in_progress: "🎲 Drawing…"
+drawing_in_progress_number: "🎲 Drawing… {number:02d}"
+results_header_simple: "🏆 <b>Results</b>"
+results_line_simple: "{icon} Number {number:02d} — {who} — {prize} {currency}"
+seed_reveal: "Seed (verify it yourself): <code>{seed}</code>"
+win_announcement: |-
+  🎉 You won {prize} {currency} (place #{place}, number {number:02d})!
+  Reply here with your payout account details to claim your prize.
+
+# --- currency label ---
+currency: "ETB"
+
+# --- language command ---
+choose_language: "Please choose a language:"
+language_set: "✅ Language set to {language}."
+language_admin_only: "Only group admins can change the language for this group."
+language_name_en: "🇬🇧 English"
+language_name_am: "🇪🇹 አማርኛ (Amharic)"
+language_name_om: "🇾🇪 Afaan Oromoo"
+
+# --- admin.py: generic usage / errors ---
+usage_newround: "Usage: /newround price prize1 prize2 ... prizeN participants_count [chat_id]"
+usage_closeregistration: "Usage: /closeregistration [chat_id]"
+usage_startdraw: "Usage: /startdraw [chat_id]"
+usage_pending: "Usage: /pending [chat_id]"
+usage_cancelround: "Usage: /cancelround [chat_id]"
+usage_listrounds: "Usage: /listrounds [chat_id]"
+usage_showround: "Usage: /showround round_number [chat_id]"
+usage_deleteround: "Usage: /deleteround round_number [chat_id]"
+usage_resendboard: "Usage: /resendboard round_number [chat_id]"
+usage_assignnumber: "Usage: /assignnumber round_number number telegram_id|@username [display_name] [chat_id]"
+usage_revoke: "Usage: /revoke round_number number [chat_id]"
+usage_payout: "Usage: /payout round_number telegram_id [chat_id]"
+usage_addadmin: "Usage: /addadmin telegram_id"
+usage_deladmin: "Usage: /deladmin telegram_id"
+usage_chat: "Usage: /chat telegram_id <message> (or reply to a message with /chat telegram_id)"
+usage_addpayment: "Usage: /addpayment Name | Account details"
+usage_delpayment: "Usage: /delpayment payment_id"
+usage_editpayment: "Usage: /editpayment payment_id | Name | Account details"
+usage_togglepayment: "Usage: /togglepayment payment_id"
+usage_language: "Usage: /language"
+
+no_open_round_to_close: "There's no open round to close."
+registration_closed_confirm: "Registration is closed. Run /startdraw when you're ready to draw."
+must_close_registration_first: "First close registration with /closeregistration."
+no_active_round: "There's no active round."
+no_pending_payments: "No payments are waiting for review."
+round_cancelled: "Round #{round_number} has been cancelled."
+round_deleted: "Round #{round_number} has been deleted."
+no_rounds_yet: "There are no rounds yet."
+round_list_line: "#{round_number} — status: {status} — created: {created_at}"
+round_not_found: "Round not found."
+round_detail_header: "Round #{round_number}\nStatus: {status}\n{numbers}"
+round_number_line: "{number:02d}: {status} — {owner}"
+
+assign_dm_notify: "An admin assigned you number {number:02d} in round #{round_number}.\n\nAssigned to: {who}"
+assign_confirm: "Number {number:02d} assigned to {who} in round #{round_number} in chat {chat_id}."
+
+revoke_number_not_found: "Number {number:02d} was not found in round #{round_number}."
+revoke_failed_verify: "⚠️ Tried to revoke number {number:02d} in round #{round_number}, but it still doesn't show as available. Please check /showround {round_number}."
+revoke_notify_previous_holder: "⚠️ Your registration for number {number:02d} in round #{round_number} was cancelled by an admin. The number is available again - you can pick another one in the group."
+revoke_no_previous_holder: "nobody (it was already available)"
+status_pending_label: "pending"
+status_reserved_label: "reserved"
+revoke_was_text_with_status: "was: {who}, {status}"
+revoke_was_text: "was: {who}"
+revoke_confirm: "✅ Number {number:02d} in round #{round_number} has been revoked ({was_text}). It's available again."
+
+payout_marked_paid: "Payment marked as paid ✅"
+payout_prize_details: |-
+
+  Prize: {prize} {currency}
+  Place: #{place}
+  Winning number: {number:02d}
+payout_notify_user: "✅ Your prize has been paid out. Thank you for playing Fetan Eta!"
+admin_added: "{admin_id} has been added as an admin."
+admin_removed: "{admin_id} has been removed as an admin."
+admins_list_header: "Admins:\n{list}"
+
+chat_sent: "Message sent to the user."
+chat_send_failed: "Could not send the message to the user."
+chat_need_reply_or_text: "Reply to a message to forward it, or provide the text to send."
+chat_forwarded: "The message you replied to has been forwarded to the user."
+chat_forward_failed: "Could not forward the message you replied to."
+
+invalid_action: "Invalid action."
+review_status_suffix: "Status: {status}"
+already_handled_by_admin: "Already {status} by another admin."
+already_handled_generic: "Already handled by another admin."
+handled_ok: "Handled ✅"
+payment_approved_notify: "✅ Your payment for number {number:02d} has been approved. Your entry is confirmed!"
+payment_rejected_notify: "❌ Your payment for number {number:02d} was rejected. The number is available again."
+admins_only: "Admins only."
+pending_payment_line: "Number {number:02d} — {who} — {amount} {currency}"
+
+status_awaiting_review: "awaiting review"
+status_approved: "approved"
+status_rejected: "rejected"
+status_cancelled: "cancelled"
+
+# --- payment methods CRUD ---
+payment_added: "Payment method added: #{payment_id} {name}"
+payment_removed: "Payment method removed."
+payment_not_found: "Payment method not found."
+payment_updated: "Payment method updated: {name}"
+payment_toggled: "Payment method {name} is now {state}."
+payment_list_header: "Payment methods:"
+payment_list_line: "#{payment_id} {name}: {details} [{state}]"
+payment_list_empty: "No payment methods configured yet. Add one with /addpayment Name | Details"
+state_active: "active"
+state_inactive: "inactive"

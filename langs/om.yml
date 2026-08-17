@@ -1,0 +1,217 @@
+# Afaan Oromoo strings for Fetan Eta bot.
+
+welcome: >-
+  👋 Baga nagaan gara Fetan Eta dhuftan!
+
+  Lakkoofsa carraa keessanii garee(Telegram Group) keessatti tarreeffaman keessaa filachuun carraa keessan yaaluu dandeessu. Qajeelfama
+  kaffaltii asitti dhuunfaan isiniif ergina.
+help: |-
+  Akkamitti hojjeta?
+  1. Lakkoofsota carraa garee keessatti tarreeffaman jiran keessaa tokko tuqaa filadhaa.
+  2. Kaffaltii raawwadhaa, ergasii suuraa ragaa kaffaltii ykn lakkoofsa daldalaa (Transaction ID) asitti ergaa.
+  3. Mirkaneessa admin eegaa.
+  4. Galmeen erga cufamee booda mo'attoonni garee keessatti kallattiin ni beeksifamu.
+  5. Yoo mo'attan, herrega kaffaltii keessan (Telebirr/CBE/baankii) asitti erguun badhaasa keessan fudhadhaa.
+link_not_yours: |-
+  🚫 Liinkiin galmee kun kan keessan miti... kan taphataa biraan filate dha.
+
+  Gara gareetti deebi'aa, lakkoofsa carraa kan biraa tuqaa filadhaa.
+round_closed_suffix: "\n\nMarsaan kun ammas hin banamu — gara gareetti deebi'aa lakkoofsa marsaa ammaa argamu keessaa tuqaa filadhaa."
+number_reserved_for_you: "👋 Baga nagaan dhuftan! Lakkoofsi {number} isiniif qabameera — odeeffannoo kaffaltii armaan olii ilaalaa ⬆️"
+reserve_generic_error: "Lakkoofsa sana qabachuu keessatti rakkoon uumameera. Maaloo gara gareetti deebi'aa lakkoofsa sana irra deebi'aa tuqaa."
+you_already_hold_pending: "Lakkoofsa {number} duraan qabdaniirtu — odeeffannoo kaffaltii armaan olii ilaalaa 👆"
+you_own_confirmed: "🎉 Lakkoofsi {number} kan keessan ta'uun mirkanaa'eera!"
+number_pending_other: "🟡 Lakkoofsi {number} yeroo ammaa kaffaltii eegaa jira — {who} isin dura tuqee kaffaltii xumuraa jira waan ta'eef, gara gareetti deebi'aa lakkoofsa biraa filadhaa 👇"
+number_reserved_other: "🟢 Lakkoofsi {number} duraan {who}n qabameera. Gara gareetti deebi'aa lakkoofsa biraa filadhaa 👇"
+other_player: "taphataa biraa"
+no_pending_action: |-
+  Yeroo ammaa wanti isin gochuu qabdan hin jiru. Gara gareetti deemuudhaan marsaa ammaa keessatti hirmaachuuf lakkoofsota carraa keessaa tokko tuqaa.
+
+  Yoo haala hojii isaa hin hubatin /help barreessuun ergaa.
+claim_received: |-
+  Galatoomaa! Odeeffannoon herrega badhaasa keessan admin-iif ergameera. Kaffaltiin erga raawwatamee booda ergaa mirkaneessaa ni argattu.
+
+# --- private.py ---
+ask_for_payment_proof: "Maaloo suuraa ragaa kaffaltii ergaa ykn lakkoofsa daldalaa(Transaction ID) keessan barreessaa."
+admin_payout_info_notify: |-
+  💰 Odeeffannoon herrega kaffaltii ergameera
+  Marsaa #{round_number}
+  Fayyadamaa: {user}
+  Herrega: {account}{prize_text}
+
+  Kaffaltii akka raawwatametti mallatteessuuf:
+  /payout {round_number} {telegram_id}
+prize_details_lines: |-
+
+  Badhaasa: {prize} {currency}
+  Sadarkaa: #{place}
+  Lakkoofsa mo'ate: {number}
+admin_payment_review_caption: |-
+  🧾 Kaffaltii(wwan) haaraa ilaalcha barbaadan
+  Lakkoofsota: {numbers}
+  Fayyadamaa: {user}
+  Hanga: {amount} {currency} (tokkoo tokkoof)
+admin_payment_txn_suffix: "\nDaldala: {value}"
+proof_submitted_confirmation: "Fudhatameera! Lakkoofsota armaan gadiitiif ragaan kaffaltii keessan ilaalchaaf ergameera:\n{numbers}"
+proof_saved_notify_failed: "Ragaa keessan ol kaa'eera, garuu gaaffii ilaalchaa admins bira amma gahuu hin dandeenye. Maaloo daqiiqaa muraasa booda irra deebi'aa yaalaa."
+
+# --- selection.py ---
+round_ended: "Marsaan kun xumurameera."
+invalid_number: "Lakkoofsi sirrii miti."
+opening_dm: "Lakkoofsa {number} qabachuuf ergaa dhuunfaa keessan banaa jira…"
+selection_cancelled: "Filannoon lakkoofsa {number} haqameera."
+number_pending_taken_alert: "🟡 Lakkoofsi {number} eegaa jira — {who}n qabameera. Lakkoofsa biraa filadhaa."
+number_reserved_taken_alert: "🟢 Lakkoofsi {number} duraan {who}n qabameera."
+
+# --- board / results text ---
+board_title: "🎲 <b>FETAN ETA #{round_number}</b>"
+board_ticket_price: "Gatii tiketii: {price} {currency}"
+board_left_numbers: "Lakkoofsota hafan: {left}/{total}"
+board_prize_money: "Maallaqa badhaasaa\n{prize_lines}"
+board_prize_line: "{icon} {prize} {currency}"
+board_winners_header: "Mo'attoota"
+board_winner_line: "{icon} Sadarkaa #{place}: lakkoofsa {number:02d} — {who} — {prize} {currency}"
+board_seed_hash: "Seed hash: {hash}"
+board_choose_number: "Lakkoofsa carraa keessan armaan gaditti filadhaa 👇"
+results_title: "🎉 𝗙𝗘𝗧𝗔𝗡 𝗘𝗧𝗔 — 𝗥𝗢𝗨𝗡𝗗 #{round_number}"
+results_line: "{icon} #{number:02d} ➜ {pad}{prize} {currency}"
+results_hash: "🔐 Hash ➜"
+results_seed: "🔑 Seed ➜"
+
+# --- round_service.py ---
+reservation_summary: |-
+  Lakkoofsa(oota) qabaman: {numbers}.
+
+  Waliigala: {total} {currency}
+
+  {payment_footer}
+no_numbers_placeholder: "(tokko iyyuu hin jiru)"
+round_already_active: "Marsaan #{round_number} amma illee hojjetaa jira (haala: {status}). Dursa xumuraa, yookaan /cancelround fayyadamaa."
+registration_closed_for_round: "Galmeen marsaa kanaa cufameera."
+taken_by_someone: "Lakkoofsi kun duraan {who}n qabameera. Maaloo lakkoofsa biraa filadhaa."
+taken_generic: "Lakkoofsi kun yeroo kanatti nama biraatiin qabameera. Maaloo lakkoofsa biraa filadhaa."
+payment_methods_footer: |-
+  Karaawwan armaan gadiitiin kaffalaa:
+  {methods}
+
+  Kaffaltii erga raawwattanii booda suuraa ragaa kaffaltii ergaa ykn lakkoofsa daldalaa (Transaction ID) asitti barreessaa.
+payment_method_line: "{name}: {details}"
+no_payment_methods: "Karaan kaffaltii ammatti hin qophoofne. Maaloo admin qunnamaa."
+
+# --- draw_service.py ---
+no_reserved_numbers_to_draw: "Lakkoofsa qabame carraaf hin jiru."
+seed_commit_message: |-
+  🔒 Seed hash (SHA-256) mirkaneessa:
+  <code>{hash}</code>
+
+  Erga seed-iin gadii ibsamee booda bu'aa mirkaneessuun ni danda'ama.
+drawing_in_progress: "🎲 Carraa baasaa jira..."
+drawing_in_progress_number: "🎲 Carraa baasaa jira... {number:02d}"
+results_header_simple: "🏆 <b>Abbaan Carraa</b>"
+results_line_simple: "{icon} Lakkoofsa {number:02d} — {who} — {prize} {currency}"
+seed_reveal: "Seed (ofii keessani mirkaneessuu ni dandeessu): <code>{seed}</code>"
+win_announcement: |-
+  🎉 {prize} {currency} mo'attaniittu (sadarkaa #{place}, lakkoofsa {number:02d})!
+  Badhaasa kana argachuuf odeeffannoo herrega kaffaltii keessan asitti deebisaa ergaa.
+
+currency: "Qarshii"
+
+# --- language command ---
+choose_language: "Maaloo afaan filadhaa:"
+language_set: "✅ Afaan gara {language} jijjiirameera."
+language_admin_only: "Garee kana keessatti afaan jijjiiruu kan danda'an admins qofa."
+language_name_en: "🇬🇧 English"
+language_name_am: "🇪🇹 አማርኛ (Amaariffa)"
+language_name_om: "🇾🇪 Afaan Oromoo"
+
+# --- admin.py: usage / errors ---
+usage_newround: "Fayyadama: /newround gatii badhaasa1 badhaasa2 ... badhaasaN lakkoofsa_hirmaattotaa [chat_id]"
+usage_closeregistration: "Fayyadama: /closeregistration [chat_id]"
+usage_startdraw: "Fayyadama: /startdraw [chat_id]"
+usage_pending: "Fayyadama: /pending [chat_id]"
+usage_cancelround: "Fayyadama: /cancelround [chat_id]"
+usage_listrounds: "Fayyadama: /listrounds [chat_id]"
+usage_showround: "Fayyadama: /showround lakkoofsa_marsaa [chat_id]"
+usage_deleteround: "Fayyadama: /deleteround lakkoofsa_marsaa [chat_id]"
+usage_resendboard: "Fayyadama: /resendboard lakkoofsa_marsaa [chat_id]"
+usage_assignnumber: "Fayyadama: /assignnumber lakkoofsa_marsaa lakkoofsa telegram_id|@username [maqaa_mul'atu] [chat_id]"
+usage_revoke: "Fayyadama: /revoke lakkoofsa_marsaa lakkoofsa [chat_id]"
+usage_payout: "Fayyadama: /payout lakkoofsa_marsaa telegram_id [chat_id]"
+usage_addadmin: "Fayyadama: /addadmin telegram_id"
+usage_deladmin: "Fayyadama: /deladmin telegram_id"
+usage_chat: "Fayyadama: /chat telegram_id <ergaa> (ykn ergaa deebisaa /chat telegram_id fayyadamaa)"
+usage_addpayment: "Fayyadama: /addpayment Maqaa | Ibsa"
+usage_delpayment: "Fayyadama: /delpayment payment_id"
+usage_editpayment: "Fayyadama: /editpayment payment_id | Maqaa | Ibsa"
+usage_togglepayment: "Fayyadama: /togglepayment payment_id"
+usage_language: "Fayyadama: /language"
+
+no_open_round_to_close: "Marsaan cufuuf banaa jiru hin jiru."
+registration_closed_confirm: "Galmeen cufameera. Yeroo carraaf qophooftan /startdraw fayyadamaa."
+must_close_registration_first: "Dura galmee /closeregistration fayyadamtanii cufaa."
+no_active_round: "Marsaan hojii irra jiru hin jiru."
+no_pending_payments: "Kaffaltiin ilaalcha eegu hin jiru."
+round_cancelled: "Marsaan #{round_number} haqameera."
+round_deleted: "Marsaan #{round_number} haqameera."
+no_rounds_yet: "Hanga ammaatti marsaan hin jiru."
+round_list_line: "#{round_number} — haala: {status} — kan uumame: {created_at}"
+round_not_found: "Marsaan hin argamne."
+round_detail_header: "Marsaa #{round_number}\nHaala: {status}\n{numbers}"
+round_number_line: "{number:02d}: {status} — {owner}"
+
+assign_dm_notify: "Admin marsaa #{round_number} keessatti lakkoofsa {number:02d} isiniif ramadeera.\n\nKan ramadame: {who}"
+assign_confirm: "Lakkoofsi {number:02d} marsaa #{round_number} keessatti {who}f chat {chat_id} keessatti ramadameera."
+
+revoke_number_not_found: "Lakkoofsi {number:02d} marsaa #{round_number} keessatti hin argamne."
+revoke_failed_verify: "⚠️ Lakkoofsa {number:02d} marsaa #{round_number} keessatti haquuf yaalameera, garuu ammas bilisa akka ta'e hin mul'atu. Maaloo /showround {round_number} ilaalaa."
+revoke_notify_previous_holder: "⚠️ Galmeen keessan lakkoofsa {number:02d} marsaa #{round_number} keessatti admin-iin haqameera. Lakkoofsi sun ammas bilisa ta'eera — garee keessatti lakkoofsa biraa filachuu dandeessu."
+revoke_no_previous_holder: "namni tokko hin jiru (duraanuu bilisa ture)"
+status_pending_label: "eegaa jira"
+status_reserved_label: "qabameera"
+revoke_was_text_with_status: "ture: {who}, {status}"
+revoke_was_text: "ture: {who}"
+revoke_confirm: "✅ Lakkoofsi {number:02d} marsaa #{round_number} keessatti haqameera ({was_text}). Ammas bilisa ta'eera."
+
+payout_marked_paid: "Kaffaltiin akka raawwatametti galmaa'eera ✅"
+payout_prize_details: |-
+
+  Badhaasa: {prize} {currency}
+  Sadarkaa: #{place}
+  Lakkoofsa mo'atan: {number:02d}
+payout_notify_user: "✅ Badhaasni keessan kaffalameera. Fetan Eta keessatti waan hirmaattaniif galatoomaa!"
+admin_added: "{admin_id} akka admin-tti dabalameera."
+admin_removed: "{admin_id} admins jalaa baafameera."
+admins_list_header: "Admins:\n{list}"
+
+chat_sent: "Ergaan fayyadamaaf ergameera."
+chat_send_failed: "Ergaa fayyadamaaf erguu hin dandeenye."
+chat_need_reply_or_text: "Ergaa erguuf ergaa tokko deebisaa barreessaa ykn barreeffama ergamu kennaa."
+chat_forwarded: "Ergaan isin deebiftan fayyadamaaf dabarfameera."
+chat_forward_failed: "Ergaa isin deebiftan fayyadamaaf dabarsuu hin dandeenye."
+
+invalid_action: "Gochi sirrii miti."
+review_status_suffix: "Haala: {status}"
+already_handled_by_admin: "Duraan admin biraatiin {status}."
+already_handled_generic: "Duraan admin biraatiin xumurameera."
+handled_ok: "Xumurameera ✅"
+payment_approved_notify: "✅ Kaffaltiin keessan lakkoofsa {number:02d}f ni mirkanaa'e. Hirmaannaan keessan mirkanaa'eera!"
+payment_rejected_notify: "❌ Kaffaltiin keessan lakkoofsa {number:02d}f didameera. Lakkoofsi sun ammas bilisa ta'eera."
+admins_only: "Admins qofaaf."
+pending_payment_line: "Lakkoofsa {number:02d} — {who} — {amount} {currency}"
+
+status_awaiting_review: "ilaalcha eegaa jira"
+status_approved: "mirkanaa'eera"
+status_rejected: "didameera"
+status_cancelled: "haqameera"
+
+# --- payment methods CRUD ---
+payment_added: "Karaan kaffaltii dabalameera: #{payment_id} {name}"
+payment_removed: "Karaan kaffaltii haqameera."
+payment_not_found: "Karaan kaffaltii hin argamne."
+payment_updated: "Karaan kaffaltii haaromfameera: {name}"
+payment_toggled: "Karaan kaffaltii {name} amma {state} dha."
+payment_list_header: "Karaalee kaffaltii:"
+payment_list_line: "#{payment_id} {name}: {details} [{state}]"
+payment_list_empty: "Hanga ammaatti karaan kaffaltii hin galmoofne. /addpayment Maqaa | Ibsa fayyadamtanii dabalaa."
+state_active: "hojii irra jira"
+state_inactive: "hojii irra hin jiru"

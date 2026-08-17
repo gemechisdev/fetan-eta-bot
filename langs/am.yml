@@ -1,0 +1,217 @@
+# Amharic strings for Fetan Eta bot.
+
+welcome: >-
+  👋 ወደ Fetan Eta(ፈጣን ዕጣ) እንኳን በደህና መጡ!
+
+  ከግሩፑ ውስጥ ነጻ ቁጥርን በመንካት በሎተሪው ይሳተፉ። የክፍያ መመሪያዎችን እዚህ በግል መልዕክት እልክልዎታለሁ።
+help: |-
+  እንዴት ይሰራል?
+  1. በግሩፑ ውስጥ ካሉት ነጻ ቁጥሮች አንዱን ይንኩ።
+  2. ክፍያ ይፈጽሙ፣ ከዚያም የክፍያውን ስክሪንሾት ወይም የግብይት መለያ ቁጥሩን እዚህ ይላኩ።
+  3. የአስተዳዳሪውን ማጽደቅ ይጠብቁ።
+  4. ምዝገባው ከተዘጋ በኋላ አሸናፊዎች በግሩፑ ውስጥ በቀጥታ ይለያሉ።
+  5. ካሸነፉ የሽልማት መቀበያ ሂሳብዎን (Telebirr/CBE/ባንክ) ይላኩ።
+link_not_yours: |-
+  🚫 ይህ የምዝገባ ሊንክ የእርስዎ አይደለም — ለሌላ ተጫዋች ጠቅ ማድረግ የተፈጠረ ነው።
+
+  ወደ ግሩፑ በመሄድ እርስዎ ራስዎ ነጻ የሆነ ቁጥር ይንኩ እና ይምረጡ።
+round_closed_suffix: "\n\nይህ ዙር ከእንግዲህ ክፍት አይደለም — ወደ ግሩፑ በመመለስ በአሁኑ ጊዜ የሚገኝ ቁጥር ይንኩ።"
+number_reserved_for_you: "👋 እንኳን ደህና መጡ! ቁጥር {number} ለእርስዎ ተይዟል — ከላይ የክፍያ መረጃውን ይመልከቱ ⬆️"
+reserve_generic_error: "ያንን ቁጥር በመያዝ ላይ ችግር ተፈጥሯል። እባክዎ ወደ ግሩፑ ተመልሰው ቁጥሩን እንደገና ይንኩ።"
+you_already_hold_pending: "ቁጥር {number}ን አስቀድመው ይዘዋል — የክፍያ መረጃውን ከላይ ይመልከቱ 👆"
+you_own_confirmed: "🎉 ቁጥር {number} የእርስዎ መሆኑ ተረጋግጧል!"
+number_pending_other: "🟡 ቁጥር {number} በአሁኑ ጊዜ በመጠባበቅ ላይ ነው — {who} ከእርስዎ በፊት ነክቶታል እና ክፍያውን እያጠናቀቀ ነው። ወደ ግሩፑ ተመልሰው ሌላ ቁጥር ይምረጡ 👇"
+number_reserved_other: "🟢 ቁጥር {number} አስቀድሞ በ{who} ተይዟል። ወደ ግሩፑ ተመልሰው ሌላ ቁጥር ይምረጡ 👇"
+other_player: "ሌላ ተጫዋች"
+no_pending_action: |-
+  በአሁኑ ጊዜ ምንም የሚያደርጉት ነገር የለም። ወደ ግሩፑ በመሄድ በአሁኑ ዙር ለመሳተፍ ከነጻ ቁጥሮች አንዱን ይንኩ።
+
+  አሰራሩ ግልጽ ካልሆነዎት /help ይጻፉ።
+claim_received: |-
+  እናመሰግናለን! የሽልማት መቀበያ መረጃዎ ለአስተዳዳሪዎች ተልኳል። ክፍያው ከተፈጸመ በኋላ የማረጋገጫ መልዕክት ይደርስዎታል።
+
+# --- private.py ---
+ask_for_payment_proof: "እባክዎ የክፍያ ማረጋገጫ ስክሪንሹት ይላኩ ወይም የግብይት መለያ ቁጥርዎን ይጻፉ።"
+admin_payout_info_notify: |-
+  💰 የክፍያ መቀበያ መረጃ ተላክ
+  ዙር #{round_number}
+  ተጠቃሚ፡ {user}
+  ሂሳብ፡ {account}{prize_text}
+
+  ክፍያው እንደተፈጸመ ምልክት ለማድረግ፡
+  /payout {round_number} {telegram_id}
+prize_details_lines: |-
+
+  ሽልማት፡ {prize} {currency}
+  ደረጃ፡ #{place}
+  ያሸነፈ ቁጥር፡ {number}
+admin_payment_review_caption: |-
+  🧾 አዲስ ክፍያ(ዎች) ለግምገማ
+  ቁጥሮች፡ {numbers}
+  ተጠቃሚ፡ {user}
+  መጠን፡ {amount} {currency} (ለእያንዳንዱ)
+admin_payment_txn_suffix: "\nግብይት፡ {value}"
+proof_submitted_confirmation: "ተረድቻለሁ! ለሚከተሉት ቁጥሮች የክፍያ ማረጋገጫዎ ለግምገማ ተልኳል፡\n{numbers}"
+proof_saved_notify_failed: "ማረጋገጫዎን አስቀምጫለሁ፣ ግን የግምገማ ጥያቄውን ለአስተዳዳሪዎች አሁን ማድረስ አልቻልኩም። እባክዎ ቆይተው እንደገና ይሞክሩ።"
+
+# --- selection.py ---
+round_ended: "ይህ ዙር አብቅቷል።"
+invalid_number: "ልክ ያልሆነ ቁጥር።"
+opening_dm: "ቁጥር {number}ን ለመያዝ የግል መልዕክትዎን በመክፈት ላይ…"
+selection_cancelled: "የቁጥር {number} ምርጫ ተሰርዟል።"
+number_pending_taken_alert: "🟡 ቁጥር {number} በመጠባበቅ ላይ ነው — በ{who} ተይዟል። ሌላ ቁጥር ይምረጡ።"
+number_reserved_taken_alert: "🟢 ቁጥር {number} አስቀድሞ በ{who} ተይዟል።"
+
+# --- board / results text ---
+board_title: "🎲 <b>FETAN ETA #{round_number}</b>"
+board_ticket_price: "የቲኬት ዋጋ፦ {price} {currency}"
+board_left_numbers: "የቀሩ ቁጥሮች፦ {left}/{total}"
+board_prize_money: "የሽልማት ገንዘብ\n{prize_lines}"
+board_prize_line: "{icon} {prize} {currency}"
+board_winners_header: "የተለዩ አሸናፊዎች"
+board_winner_line: "{icon} ደረጃ #{place}፦ ቁጥር {number:02d} — {who} — {prize} {currency}"
+board_seed_hash: "የSeed Hash፦ {hash}"
+board_choose_number: "ከታች የሚገኘውን የእድል ቁጥርዎን ይምረጡ 👇"
+results_title: "🎉 𝗙𝗘𝗧𝗔𝗡 𝗘𝗧𝗔 — 𝗥𝗢𝗨𝗡𝗗 #{round_number}"
+results_line: "{icon} #{number:02d} ➜ {pad}{prize} {currency}"
+results_hash: "🔐 Hash ➜"
+results_seed: "🔑 Seed ➜"
+
+# --- round_service.py ---
+reservation_summary: |-
+  የተያዙ ቁጥር(ሮች): {numbers}።
+
+  ጠቅላላ: {total} {currency}
+
+  {payment_footer}
+no_numbers_placeholder: "(ምንም)"
+round_already_active: "ዙር #{round_number} አሁንም ንቁ ነው (ሁኔታ: {status})። መጀመሪያ ይጨርሱት ወይም /cancelround ያድርጉት።"
+registration_closed_for_round: "ለዚህ ዙር ምዝገባው ተዘግቷል።"
+taken_by_someone: "ይህ ቁጥር አስቀድሞ በ{who} ተይዟል። ሌላ ቁጥር ይምረጡ።"
+taken_generic: "ይህ ቁጥር አሁን በሌላ ሰው ተይዟል። ሌላ ቁጥር ይምረጡ።"
+payment_methods_footer: |-
+  ወደዚህ ይክፈሉ:
+  {methods}
+
+  ክፍያውን ከፈጸሙ በኋላ የክፍያውን ስክሪንሾት ይላኩ ወይም የግብይት መለያ ቁጥሩን (Transaction ID) እዚህ ይጻፉ።
+payment_method_line: "{name}: {details}"
+no_payment_methods: "የክፍያ ዘዴዎች እስካሁን አልተዋቀሩም። እባክዎ አስተዳዳሪውን ያግኙ።"
+
+# --- draw_service.py ---
+no_reserved_numbers_to_draw: "ለማውጣት ምንም የተያዙ ቁጥሮች የሉም።"
+seed_commit_message: |-
+  🔒 የእጣ ማውጣት የseed hash (SHA-256):
+  <code>{hash}</code>
+
+  Seed ከዚህ በታች ከተገለጸ በኋላ ውጤቱን ማረጋገጥ ይቻላል።
+drawing_in_progress: "🎲 እጣ በማውጣት ላይ..."
+drawing_in_progress_number: "🎲 እጣ በማውጣት ላይ... {number:02d}"
+results_header_simple: "🏆 <b>ውጤቶች</b>"
+results_line_simple: "{icon} ቁጥር {number:02d} — {who} — {prize} {currency}"
+seed_reveal: "Seed (እራስዎ ያረጋግጡ): <code>{seed}</code>"
+win_announcement: |-
+  🎉 {prize} {currency} አሸንፈዋል (ደረጃ #{place}፣ ቁጥር {number:02d})!
+  ሽልማቱን ለመቀበል የክፍያ መቀበያ ሂሳብዎን እዚህ በመልስ ይላኩ።
+
+currency: "ብር"
+
+# --- language command ---
+choose_language: "እባክዎ ቋንቋ ይምረጡ፦"
+language_set: "✅ ቋንቋው ወደ {language} ተቀይሯል።"
+language_admin_only: "ለዚህ ግሩፕ ቋንቋውን መቀየር የሚችሉት አስተዳዳሪዎች ብቻ ናቸው።"
+language_name_en: "🇬🇧 English"
+language_name_am: "🇪🇹 አማርኛ"
+language_name_om: "🇾🇪 Afaan Oromoo"
+
+# --- admin.py: usage / errors ---
+usage_newround: "አጠቃቀም፦ /newround price prize1 prize2 ... prizeN participants_count [chat_id]"
+usage_closeregistration: "አጠቃቀም፦ /closeregistration [chat_id]"
+usage_startdraw: "አጠቃቀም፦ /startdraw [chat_id]"
+usage_pending: "አጠቃቀም፦ /pending [chat_id]"
+usage_cancelround: "አጠቃቀም፦ /cancelround [chat_id]"
+usage_listrounds: "አጠቃቀም፦ /listrounds [chat_id]"
+usage_showround: "አጠቃቀም፦ /showround round_number [chat_id]"
+usage_deleteround: "አጠቃቀም፦ /deleteround round_number [chat_id]"
+usage_resendboard: "አጠቃቀም፦ /resendboard round_number [chat_id]"
+usage_assignnumber: "አጠቃቀም፦ /assignnumber round_number number telegram_id|@username [display_name] [chat_id]"
+usage_revoke: "አጠቃቀም፦ /revoke round_number number [chat_id]"
+usage_payout: "አጠቃቀም፦ /payout round_number telegram_id [chat_id]"
+usage_addadmin: "አጠቃቀም፦ /addadmin telegram_id"
+usage_deladmin: "አጠቃቀም፦ /deladmin telegram_id"
+usage_chat: "አጠቃቀም፦ /chat telegram_id <message> (ወይም መልዕክት ላይ በመመለስ /chat telegram_id ይጠቀሙ)"
+usage_addpayment: "አጠቃቀም፦ /addpayment ስም | ዝርዝር"
+usage_delpayment: "አጠቃቀም፦ /delpayment payment_id"
+usage_editpayment: "አጠቃቀም፦ /editpayment payment_id | ስም | ዝርዝር"
+usage_togglepayment: "አጠቃቀም፦ /togglepayment payment_id"
+usage_language: "አጠቃቀም፦ /language"
+
+no_open_round_to_close: "ለመዝጋት ክፍት ዙር የለም።"
+registration_closed_confirm: "ምዝገባው ተዘግቷል። ለመጀመር ዝግጁ ሲሆኑ /startdraw ያስኪዱ።"
+must_close_registration_first: "መጀመሪያ ምዝገባውን በ /closeregistration ይዝጉ።"
+no_active_round: "ምንም ንቁ ዙር የለም።"
+no_pending_payments: "ለግምገማ የሚጠብቅ ክፍያ የለም።"
+round_cancelled: "ዙር #{round_number} ተሰርዟል።"
+round_deleted: "ዙር #{round_number} ተሰርዟል።"
+no_rounds_yet: "እስካሁን ምንም ዙር የለም።"
+round_list_line: "#{round_number} — ሁኔታ፦ {status} — የተፈጠረበት፦ {created_at}"
+round_not_found: "ዙሩ አልተገኘም።"
+round_detail_header: "ዙር #{round_number}\nሁኔታ፦ {status}\n{numbers}"
+round_number_line: "{number:02d}: {status} — {owner}"
+
+assign_dm_notify: "በአስተዳዳሪ ዙር #{round_number} ውስጥ ቁጥር {number:02d} ተመድቦልዎታል።\n\nየተመደበው፦ {who}"
+assign_confirm: "ቁጥር {number:02d} በዙር #{round_number} ለ{who} በቻት {chat_id} ተመድቧል።"
+
+revoke_number_not_found: "ቁጥር {number:02d} በዙር #{round_number} ውስጥ አልተገኘም።"
+revoke_failed_verify: "⚠️ በዙር #{round_number} ውስጥ ቁጥር {number:02d}ን ለመሰረዝ ተሞክሯል፣ ነገር ግን አሁንም እንደ ነጻ አይታይም። እባክዎ /showround {round_number} ይመልከቱ።"
+revoke_notify_previous_holder: "⚠️ በዙር #{round_number} ውስጥ ለቁጥር {number:02d} ያደረጉት ምዝገባ በአስተዳዳሪ ተሰርዟል። ቁጥሩ እንደገና ነጻ ሆኗል — በግሩፑ ውስጥ ሌላ ቁጥር መምረጥ ይችላሉ።"
+revoke_no_previous_holder: "ማንም የለም (አስቀድሞ ነጻ ነበር)"
+status_pending_label: "በመጠባበቅ ላይ"
+status_reserved_label: "ተይዟል"
+revoke_was_text_with_status: "ነበር፦ {who}፣ {status}"
+revoke_was_text: "ነበር፦ {who}"
+revoke_confirm: "✅ ቁጥር {number:02d} በዙር #{round_number} ተሰርዟል ({was_text})። እንደገና ነጻ ሆኗል።"
+
+payout_marked_paid: "ክፍያ ተፈጽሟል ተብሎ ተመዝግቧል ✅"
+payout_prize_details: |-
+
+  ሽልማት፦ {prize} {currency}
+  ደረጃ፦ #{place}
+  ያሸነፉበት ቁጥር፦ {number:02d}
+payout_notify_user: "✅ ሽልማትዎ ተከፍሏል። Fetan Etaን ስለተሳተፉ እናመሰግናለን!"
+
+admin_added: "{admin_id} እንደ አስተዳዳሪ ታክሏል።"
+admin_removed: "{admin_id} ከአስተዳዳሪዎች ተወግዷል።"
+admins_list_header: "አስተዳዳሪዎች፦\n{list}"
+
+chat_sent: "መልዕክቱ ለተጠቃሚው ተልኳል።"
+chat_send_failed: "መልዕክቱን ለተጠቃሚው መላክ አልተቻለም።"
+chat_need_reply_or_text: "መልዕክቱን ለመላክ መልዕክት ላይ በመመለስ ይጻፉ ወይም የሚላከውን ጽሑፍ ያቅርቡ።"
+chat_forwarded: "የተመለሱበት መልዕክት ለተጠቃሚው ተላልፏል።"
+chat_forward_failed: "የተመለሱበትን መልዕክት ለተጠቃሚው ማስተላለፍ አልተቻለም።"
+
+invalid_action: "ልክ ያልሆነ ተግባር።"
+review_status_suffix: "ሁኔታ፦ {status}"
+already_handled_by_admin: "አስቀድሞ በሌላ አስተዳዳሪ {status}።"
+already_handled_generic: "አስቀድሞ በሌላ አስተዳዳሪ ተስተናግዷል።"
+handled_ok: "ተስተናግዷል ✅"
+payment_approved_notify: "✅ ለቁጥር {number:02d} የፈጸሙት ክፍያ ጸድቋል። ተሳትፎዎ ተረጋግጧል!"
+payment_rejected_notify: "❌ ለቁጥር {number:02d} የፈጸሙት ክፍያ ውድቅ ተደርጓል። ቁጥሩ እንደገና ነጻ ሆኗል።"
+admins_only: "ለአስተዳዳሪዎች ብቻ።"
+pending_payment_line: "ቁጥር {number:02d} — {who} — {amount} {currency}"
+
+status_awaiting_review: "ግምገማ እየተጠበቀ ነው"
+status_approved: "ጸድቋል"
+status_rejected: "ውድቅ ተደርጓል"
+status_cancelled: "ተሰርዟል"
+
+# --- payment methods CRUD ---
+payment_added: "የክፍያ ዘዴ ታክሏል፦ #{payment_id} {name}"
+payment_removed: "የክፍያ ዘዴ ተወግዷል።"
+payment_not_found: "የክፍያ ዘዴው አልተገኘም።"
+payment_updated: "የክፍያ ዘዴ ተስተካክሏል፦ {name}"
+payment_toggled: "የክፍያ ዘዴ {name} አሁን {state} ነው።"
+payment_list_header: "የክፍያ ዘዴዎች፦"
+payment_list_line: "#{payment_id} {name}: {details} [{state}]"
+payment_list_empty: "እስካሁን ምንም የክፍያ ዘዴ አልተዋቀረም። በ /addpayment ስም | ዝርዝር ያክሉ።"
+state_active: "ንቁ"
+state_inactive: "ንቁ ያልሆነ"

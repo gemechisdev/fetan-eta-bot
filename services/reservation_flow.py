@@ -16,9 +16,10 @@ from db import repository as repo
 from services import round_service
 
 
-async def reserve_number_and_notify(bot: Bot, round_doc: dict, number: int, user) -> dict:
+async def reserve_number_and_notify(bot: Bot, round_doc: dict, number: int, user, lang: str) -> dict:
     """Attempt to reserve `number` in `round_doc` for `user`, then DM them
-    payment instructions.
+    payment instructions in `lang` (the language of the user's own private
+    chat with the bot, since that's where this DM lands).
 
     Returns one of:
       {"status": "reserved"}
@@ -28,13 +29,13 @@ async def reserve_number_and_notify(bot: Bot, round_doc: dict, number: int, user
     display_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
 
     payment, error = await round_service.select_number(
-        round_doc, number, user.id, user.username, display_name=display_name
+        round_doc, number, user.id, user.username, display_name=display_name, lang=lang
     )
     if error:
         return {"status": "taken", "message": error}
 
     try:
-        dm_text = await round_service.build_reservation_summary_text(round_doc["_id"], user.id)
+        dm_text = await round_service.build_reservation_summary_text(round_doc["_id"], user.id, lang)
         await bot.send_message(user.id, dm_text)
     except Exception:
         # User can't be DMed yet (hasn't started the bot). Roll back the

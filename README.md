@@ -221,6 +221,11 @@ running process.
 | `/deladmin` / `/dadmin`      | Remove a DB-backed admin                                  |
 | `/listadmins` / `/admins`    | List admins                                               |
 | `/chat` / `/msg`             | Send a text/media reply to a user                         |
+| `/addpayment`                | Add a payment method: `/addpayment Telebirr \| 09xxxxxxxx` |
+| `/editpayment`               | Edit a payment method: `/editpayment <id> \| Name \| Details` |
+| `/delpayment`                | Remove a payment method: `/delpayment <id>`               |
+| `/togglepayment`             | Activate/deactivate a payment method: `/togglepayment <id>` |
+| `/listpayments` / `/payments`| List all payment methods (including inactive ones)        |
 
 When you run a round command from private chat, append the target `chat_id` at the end, for example:
 
@@ -230,6 +235,35 @@ When you run a round command from private chat, append the target `chat_id` at t
 /assignnumber 1 34 7708711658 -1001234567890
 /revoke 1 34 -1001234567890
 ```
+
+### Languages
+
+Every chat — a group **or** a private DM — has its own language, independent
+of every other chat. Anyone can run `/language` (alias `/lang`) in their own
+private chat with the bot; in a group, only admins can change it (since it
+affects everyone there). The choice is stored in MongoDB (`chat_settings`
+collection) and cached in memory, so it survives restarts and doesn't add a
+DB round-trip to every message.
+
+Supported languages: English (`en`), Amharic (`am`), Afaan Oromoo (`om`),
+default English. All user-facing strings live in `langs/en.yml`,
+`langs/am.yml`, `langs/om.yml` — one flat `key: "text"` mapping per file, with
+`{placeholders}` for dynamic values. To add a language, copy `langs/en.yml`
+to `langs/<code>.yml`, translate the values (keep the `{placeholders}`
+as-is), and add `<code>` to `SUPPORTED_LANGS` in `core/i18n.py`. Any key
+missing from a translation file automatically falls back to English rather
+than crashing, so partial translations are safe to ship.
+
+### Payment methods
+
+Payment instructions shown to players (in the reservation DM) are built
+dynamically from whatever payment methods are currently active — there's no
+hardcoded "Telebirr / CBE" text anywhere anymore. Manage them with
+`/addpayment`, `/editpayment`, `/delpayment`, `/togglepayment`, and
+`/listpayments`, all admin-only, from any chat. They're stored once
+(`payment_methods` collection) and shown to every group the bot serves, since
+the underlying payment accounts are the same regardless of which group a
+round is running in.
 
 ## 6. Project layout
 
@@ -248,16 +282,20 @@ core/config.py            env var loading + RUN_MODE detection (was `bot/` — r
 core/dispatcher.py         to free up bot.py as a top-level entrypoint name)
 core/webserver.py         aiohttp app: webhook handler + health/root/ping routes
 core/keyboards.py         inline keyboards (number grid, approve/reject)
-core/texts.py             all user-facing strings + board/results text builders
+core/texts.py             board/results text builders (language-aware, pulls from core/i18n)
+core/i18n.py              language loader/lookup (t()), reads langs/*.yml
 core/deeplink.py          encode/decode payload for the per-tap, per-user reservation deep link
 core/routers/
-  common.py                 /start (incl. deep-link reservation handoff) /help
-  admin.py                  round management, verification, payouts, revoke
+  common.py                 /start (incl. deep-link reservation handoff) /help /language
+  admin.py                  round management, verification, payouts, revoke, payment method CRUD
   selection.py               number tap handling (group) — always opens the tapper's own DM
   private.py                 payment proof + payout claim (private chat, no FSM)
 
+langs/en.yml, am.yml, om.yml   all user-facing strings, one flat key:text mapping per language
+
 db/client.py              Mongo connection singleton (tz-aware, see note below)
-db/repository.py          every Mongo query lives here, nowhere else
+db/repository.py          every Mongo query lives here, nowhere else (incl. per-chat language
+                            settings and the payment_methods collection)
 services/round_service.py     round/number/payment business logic + board refresh helper
 services/reservation_flow.py  shared "reserve number + DM payer" flow, called from the
                                 private /start handler once a user lands in their own DM

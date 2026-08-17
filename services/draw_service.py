@@ -4,13 +4,14 @@ import random
 import secrets
 
 from core import config as core_config
+from core.i18n import t
 from core.keyboards import build_number_grid
 from core.texts import build_board_text, build_results_text, format_user_identity
 from db import repository as repo
 from aiogram.exceptions import TelegramBadRequest
 
 
-async def commit_and_draw(round_doc, bot, chat_id):
+async def commit_and_draw(round_doc, bot, chat_id, lang: str):
     """Computes the draw result immediately using a committed random seed
     (so the outcome can never be influenced by the animation), then plays
     a short visual reveal in the group.
@@ -24,7 +25,7 @@ async def commit_and_draw(round_doc, bot, chat_id):
     prizes = round_doc["config"]["prizes"]
 
     if not eligible:
-        return None, "ለማውጣት ምንም የተያዙ ቁጥሮች የሉም።"
+        return None, t(lang, "no_reserved_numbers_to_draw")
 
     seed = secrets.token_hex(16)
     seed_hash = hashlib.sha256(seed.encode()).hexdigest()
@@ -62,30 +63,25 @@ async def commit_and_draw(round_doc, bot, chat_id):
     try:
         board_id = round_doc.get("message_refs", {}).get("board_message_id") if round_doc else None
         if round_doc and board_id:
-            await bot.edit_message_text(build_board_text(round_doc), chat_id=chat_id, message_id=board_id)
+            await bot.edit_message_text(build_board_text(round_doc, lang), chat_id=chat_id, message_id=board_id)
             await bot.edit_message_reply_markup(chat_id=chat_id, message_id=board_id, reply_markup=build_number_grid(round_doc))
     except Exception:
         pass
 
     # 1) Publish the commitment BEFORE revealing anything, so anyone can
     #    later verify the result wasn't changed after the fact.
-    await bot.send_message(
-        chat_id,
-        "🔒 የእጣ ማውጣት የseed hash (SHA-256):\n"
-        f"<code>{seed_hash}</code>\n\n"
-        "Seed ከዚህ በታች ከተገለጸ በኋላ ውጤቱን ማረጋገጥ ይቻላል።",
-    )
+    await bot.send_message(chat_id, t(lang, "seed_commit_message", hash=seed_hash))
 
     # 2) Cosmetic spinning animation. The real result is already decided
     #    and stored above — this is purely for visual transparency.
     all_numbers = [n["number"] for n in eligible]
-    msg = await bot.send_message(chat_id, "🎲 እጣ በማውጣት ላይ...")
+    msg = await bot.send_message(chat_id, t(lang, "drawing_in_progress"))
     for _ in range(6):
         await asyncio.sleep(0.6)
         fake = rng.choice(all_numbers)
         try:
             await bot.edit_message_text(
-                f"🎲 እጣ በማውጣት ላይ... {fake:02d}", chat_id=chat_id, message_id=msg.message_id
+                t(lang, "drawing_in_progress_number", number=fake), chat_id=chat_id, message_id=msg.message_id
             )
         except TelegramBadRequest:
             # Ignore "message is not modified" and similar transient edit errors
@@ -95,12 +91,14 @@ async def commit_and_draw(round_doc, bot, chat_id):
     def result_icon(place: int) -> str:
         return {1: "🥇", 2: "🥈", 3: "🥉"}.get(place, "🎖")
 
-    lines = ["🏆 <b>ውጤቶች</b>", ""]
+    lines = [t(lang, "results_header_simple"), ""]
     for r in results:
         who = format_user_identity(r.get("display_name"), r.get("username"), r.get("telegram_id"))
-        lines.append(f"{result_icon(r['place'])} ቁጥር {r['number']:02d} — {who} — {r['prize']} ETB")
+        lines.append(
+            t(lang, "results_line_simple", icon=result_icon(r["place"]), number=r["number"], who=who, prize=r["prize"], currency=t(lang, "currency"))
+        )
     lines.append("")
-    lines.append(f"Seed (እራስዎ ያረጋግጡ): <code>{seed}</code>")
+    lines.append(t(lang, "seed_reveal", seed=seed))
     try:
         await bot.edit_message_text("\n".join(lines), chat_id=chat_id, message_id=msg.message_id)
     except TelegramBadRequest:
@@ -112,10 +110,10 @@ async def commit_and_draw(round_doc, bot, chat_id):
         send_kwargs = {}
         if core_config.RESULT_MESSAGE_EFFECT_ID:
             send_kwargs["message_effect_id"] = core_config.RESULT_MESSAGE_EFFECT_ID
-        await bot.send_message(chat_id, build_results_text(round_doc, results), **send_kwargs)
+        await bot.send_message(chat_id, build_results_text(round_doc, results, lang), **send_kwargs)
     except Exception:
         try:
-            await bot.send_message(chat_id, build_results_text(round_doc, results))
+            await bot.send_message(chat_id, build_results_text(round_doc, results, lang))
         except Exception:
             pass
 

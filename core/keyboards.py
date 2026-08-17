@@ -1,6 +1,8 @@
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from core.i18n import SUPPORTED_LANGS, language_display_name
+
 STATUS_EMOJI = {
     "available": "⚪",
     "pending": "🟡",
@@ -44,4 +46,15 @@ def build_review_kb_multi(payment_ids: list[str]) -> InlineKeyboardMarkup:
     builder.button(text="✅ Approve All", callback_data=f"rev:approve:{joined}")
     builder.button(text="❌ Reject All", callback_data=f"rev:reject:{joined}")
     builder.adjust(2)
+    return builder.as_markup()
+
+
+def build_language_kb() -> InlineKeyboardMarkup:
+    """Language names are shown in their own language regardless of the
+    chat's current language, so a user can recognize their language even if
+    the bot is currently set to one they don't read."""
+    builder = InlineKeyboardBuilder()
+    for code in SUPPORTED_LANGS:
+        builder.button(text=language_display_name(code), callback_data=f"setlang:{code}")
+    builder.adjust(1)
     return builder.as_markup()

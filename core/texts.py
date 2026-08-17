@@ -1,44 +1,7 @@
-PAYMENT_INSTRUCTIONS = (
-    "ቁጥር {number}ን መርጠዋል።\n\n"
-    "ዋጋ፦ {amount} ብር\n\n"
-    "ክፍያ የሚፈጽሙበት፦\n"
-    "Telebirr፦ 09xxxxxxxx\n"
-    "CBE፦ 100xxxxxxxx\n\n"
-    "ክፍያውን ከፈጸሙ በኋላ የክፍያውን ስክሪንሾት ይላኩ ወይም የግብይት መለያ ቁጥሩን (Transaction ID) እዚህ ይጻፉ።"
-)
-
-PROOF_RECEIVED = (
-    "ተቀብለናል! ለቁጥር {number} የላኩት የክፍያ ማረጋገጫ ለግምገማ ተልኳል። "
-    "ቁጥርዎን በቅርቡ እናረጋግጣለን።"
-)
-
-CLAIM_RECEIVED = (
-    "እናመሰግናለን! የሽልማት መቀበያ መረጃዎ ለአስተዳዳሪዎች ተልኳል። "
-    "ክፍያው ከተፈጸመ በኋላ የማረጋገጫ መልዕክት ይደርስዎታል።"
-)
-
-NO_PENDING_ACTION = (
-    "በአሁኑ ጊዜ ምንም የሚያደርጉት ነገር የለም። ወደ ግሩፑ በመሄድ በአሁኑ ዙር ለመሳተፍ ከነጻ ቁጥሮች አንዱን ይንኩ።\n\n"
-    "አሰራሩ ግልጽ ካልሆነዎት /help ይጻፉ።"
-)
-
-WELCOME = (
-    "👋 ወደ Fetan Eta(ፈጣን ዕጣ) እንኳን በደህና መጡ!\n\n"
-    "ከግሩፑ ውስጥ ነጻ ቁጥርን በመንካት በሎተሪው ይሳተፉ። "
-    "የክፍያ መመሪያዎችን እዚህ በግል መልዕክት እልክልዎታለሁ።"
-)
-
-HELP = (
-    "እንዴት ይሰራል?\n"
-    "1. በግሩፑ ውስጥ ካሉት ነጻ ቁጥሮች አንዱን ይንኩ።\n"
-    "2. ክፍያ ይፈጽሙ፣ ከዚያም የክፍያውን ስክሪንሾት ወይም የግብይት መለያ ቁጥሩን እዚህ ይላኩ።\n"
-    "3. የአስተዳዳሪውን ማጽደቅ ይጠብቁ።\n"
-    "4. ምዝገባው ከተዘጋ በኋላ አሸናፊዎች በግሩፑ ውስጥ በቀጥታ ይለያሉ።\n"
-    "5. ካሸነፉ የሽልማት መቀበያ ሂሳብዎን (Telebirr/CBE/ባንክ) ይላኩ።"
-)
+from core.i18n import t
 
 
-def build_board_text(round_doc) -> str:
+def build_board_text(round_doc, lang: str) -> str:
     cfg = round_doc["config"]
     total = cfg["total_numbers"]
     left = sum(1 for n in round_doc["numbers"] if n["status"] == "available")
@@ -48,33 +11,39 @@ def build_board_text(round_doc) -> str:
     def prize_icon(index: int) -> str:
         return {0: "🥇", 1: "🥈", 2: "🥉"}.get(index, "🎖")
 
-    prize_lines = "\n".join(f"{prize_icon(i)} {p} ብር" for i, p in enumerate(prizes))
+    currency = t(lang, "currency")
+    prize_lines = "\n".join(
+        t(lang, "board_prize_line", icon=prize_icon(i), prize=p, currency=currency) for i, p in enumerate(prizes)
+    )
 
     lines = [
-        f"🎲 <b>FETAN ETA #{round_doc['round_number']}</b>",
+        t(lang, "board_title", round_number=round_doc["round_number"]),
         "",
-        f"የቲኬት ዋጋ፦ {cfg['ticket_price']} ብር",
-        f"የቀሩ ቁጥሮች፦ {left}/{total}",
+        t(lang, "board_ticket_price", price=cfg["ticket_price"], currency=currency),
+        t(lang, "board_left_numbers", left=left, total=total),
         "",
-        f"የሽልማት ገንዘብ\n{prize_lines}",
+        t(lang, "board_prize_money", prize_lines=prize_lines),
     ]
 
     if results:
-        lines.extend([
-            "",
-            "<b>የተለዩ አሸናፊዎች</b>",
-        ])
+        lines.extend(["", t(lang, "board_winners_header")])
         for r in results:
             lines.append(
-                f"{prize_icon(r['place'] - 1)} ደረጃ #{r['place']}፦ ቁጥር {r['number']:02d} — {format_user_identity(r.get('display_name'), r.get('username'), r.get('telegram_id'))} — {r['prize']} ብር"
+                t(
+                    lang,
+                    "board_winner_line",
+                    icon=prize_icon(r["place"] - 1),
+                    place=r["place"],
+                    number=r["number"],
+                    who=format_user_identity(r.get("display_name"), r.get("username"), r.get("telegram_id")),
+                    prize=r["prize"],
+                    currency=currency,
+                )
             )
         if round_doc.get("draw", {}).get("seed_hash"):
-            lines.extend([
-                "",
-                f"የSeed Hash፦ {round_doc['draw']['seed_hash']}",
-            ])
+            lines.extend(["", t(lang, "board_seed_hash", hash=round_doc["draw"]["seed_hash"])])
 
-    lines.extend(["", "ከታች የሚገኘውን የእድል ቁጥርዎን ይምረጡ 👇"])
+    lines.extend(["", t(lang, "board_choose_number")])
 
     return "\n".join(lines)
 
@@ -88,10 +57,11 @@ def _bold_digits(n: int) -> str:
     return "".join(chr(_BOLD_SANS_DIGIT_BASE + int(d)) for d in str(n))
 
 
-def build_results_text(round_doc, results) -> str:
+def build_results_text(round_doc, results, lang: str) -> str:
     def result_icon(place: int) -> str:
         return {1: "🥇", 2: "🥈", 3: "🥉"}.get(place, "🎖")
 
+    currency = t(lang, "currency")
     prize_strs = [f"{r['prize']:,}" for r in results]
     width = max((len(p) for p in prize_strs), default=0)
 
@@ -99,18 +69,18 @@ def build_results_text(round_doc, results) -> str:
     for r, prize_str in zip(results, prize_strs):
         pad = " " * (width - len(prize_str))
         result_lines.append(
-            f"┣ {result_icon(r['place'])} #{r['number']:02d} ➜ {pad}{prize_str} ብር"
+            t(lang, "results_line", icon=result_icon(r["place"]), number=r["number"], pad=pad, prize=prize_str, currency=currency)
         )
 
     draw = round_doc.get("draw", {})
     lines = [
         "╔═══━━━━━∙•∙◦❉◦∙•∙━━━━━═══╗",
-        f"┣   🎉 𝗙𝗘𝗧𝗔𝗡 𝗘𝗧𝗔 — 𝗥𝗢𝗨𝗡𝗗 #{_bold_digits(round_doc['round_number'])}",
+        f"┣   {t(lang, 'results_title', round_number=_bold_digits(round_doc['round_number']))}",
         "┣━━━━━━━━━━━━━━━━━━━━━",
-        *result_lines,
+        *[f"┣ {line}" for line in result_lines],
         "┣━━━━━━━━━━━━━━━━━━━━━",
-        f"┣ 🔐 Hash ➜ <code>{draw.get('seed_hash')}</code>",
-        f"┣ 🔑 Seed ➜ <code>{draw.get('seed')}</code>",
+        f"┣ {t(lang, 'results_hash')} <code>{draw.get('seed_hash')}</code>",
+        f"┣ {t(lang, 'results_seed')} <code>{draw.get('seed')}</code>",
         "╚═══━━━━━∙•∙◦❉◦∙•∙━━━━━═══╝",
     ]
     return "\n".join(lines)
